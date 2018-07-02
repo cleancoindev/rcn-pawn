@@ -1,10 +1,10 @@
 pragma solidity ^0.4.15;
 
-import "./../../utils/BytesUtils.sol";
-import "./../../interfaces/Engine.sol";
-import "./../../interfaces/Token.sol";
-import "./../../interfaces/ERC721.sol";
-import "./../../utils/Ownable.sol";
+import "./rcn/interfaces/Engine.sol";
+import "./rcn/interfaces/Token.sol";
+import "./rcn/interfaces/ERC721.sol";
+import "./rcn/utils/BytesUtils.sol";
+import "./rcn/utils/Ownable.sol";
 
 contract Pawn is ERC721, BytesUtils, Ownable {
     Engine engine;
