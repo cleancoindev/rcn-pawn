@@ -68,6 +68,10 @@ contract Pawn is ERC721, BytesUtils, Ownable {
     }
 
     function deletePawn(uint _loanId) public onlyBorrower(_loanId) {
+        require(engine.getStatus(_loanId) == Engine.Status.initial, "The loan status should by 0(initial)");
+
+        delete pawnToOwner[_loanId];
+        delete pawnToApproved[_loanId];
         delete loanIdToPawn[_loanId];
     }
 

@@ -147,6 +147,48 @@ contract('NanoLoanEngine', function(accounts) {
         assert.equal(await pokemons.ownerOf(pikachu), borrower);
         assert.equal(await pokemons.getApproved(pikachu), 0x0);
     });
+    it("Test delete Pawn", async() => {
+        let loanReceipt = await engine.createLoan(0x0, borrower, 0x0, web3.toWei("500"), Helper.toInterestRate(17, dueTime), Helper.toInterestRate(17, dueTime), dueTime, 0, 10 ** 30, "", {from:borrower});
+        const loanId = loanReceipt.logs[0].args._index;
+
+        await pepe.createTokens(borrower, web3.toWei("500"));
+        await pepe.approve(pawn.address, web3.toWei("500"), {from:borrower});
+        await pawn.addERC20ToPawnToken(loanId, pepe.address, web3.toWei("500"), {from: borrower});
+        await pokemons.approve(pawn.address, pikachu, {from:borrower});
+        await pawn.addERC721ToPawnToken(loanId, pokemons.address, [pikachu], {from: borrower});
+        await zombies.approve(pawn.address, michaelJackson, {from:borrower});
+        await pawn.addERC721ToPawnToken(loanId, zombies.address, [michaelJackson], {from: borrower});
+        await magicCards.approve(pawn.address, blackDragon, {from:borrower});
+        await magicCards.approve(pawn.address, ent, {from:borrower});
+        await pawn.addERC721ToPawnToken(loanId, magicCards.address, [blackDragon, ent], {from: borrower});
+
+        await pawn.deletePawn(loanId, {from: borrower});
+        const auxERC20 = await pawn.getERC20Pawn(loanId);
+        assert.isEmpty(auxERC20[0], "ckeck delete");
+        assert.isEmpty(auxERC20[1], "ckeck delete");
+        assert.isEmpty(await pawn.getERC721AddrPawn(loanId), "ckeck delete");
+
+        await magicCards.approve(pawn.address, ent, {from:borrower});
+        await pawn.addERC721ToPawnToken(loanId, magicCards.address, [ent], {from: borrower});
+
+        await pawn.approve(erc721Cosigner.address, loanId, {from:borrower});
+
+        await rcn.createTokens(lender, web3.toWei("500"));
+        rcn.approve(engine.address, web3.toWei("500"), {from:lender});
+
+        const cosignerData = Helper.hexArrayToBytesOfBytes32([pawn.address, loanId]);
+        await engine.lend(loanId, [], erc721Cosigner.address, cosignerData, {from:lender});
+
+        try { // try delete a pawn after lend
+          await pawn.deletePawn(loanId, {from: borrower});
+          assert(false, "throw was expected in line above.")
+        } catch(e){
+          assert(Helper.isRevertErrorMessage(e), "expected throw but got: " + e);
+        }
+
+        assert.equal(await magicCards.ownerOf(ent), pawn.address);
+        assert.equal(await magicCards.getApproved(ent), 0x0);
+    });
 
     it("ERC721 cosigner test, defaulted loan, 3 ERC721 contract n non fungible token, and RCN token", async() => {
         let loanReceipt = await engine.createLoan(0x0, borrower, 0x0, web3.toWei("500"), Helper.toInterestRate(17, dueTime), Helper.toInterestRate(17, dueTime), dueTime, 0, 10 ** 30, "", {from:borrower});
