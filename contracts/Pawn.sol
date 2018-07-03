@@ -27,6 +27,37 @@ contract Pawn is ERC721, BytesUtils, Ownable {
         uint[] nfts; // array of non fungible
     }
 
+    function getERC20Pawn(uint _loanId) public view returns(address[] memory addrs, uint[] memory amounts){
+        ERC20Data[] storage erc20Data = loanIdToPawn[_loanId].erc20Datas;
+        uint length = erc20Data.length;
+        addrs = new address[](length);
+        amounts = new uint[](length);
+
+        for(uint i; i < length; i++){
+            addrs[i] = erc20Data[i].addr;
+            amounts[i] = erc20Data[i].amount;
+        }
+    }
+
+    function getERC721AddrPawn(uint _loanId) public view returns(address[] addrs){
+        ERC721Data[] storage erc721Data = loanIdToPawn[_loanId].erc721Datas;
+        addrs = new address[](erc721Data.length);
+
+        for(uint i; i < erc721Data.length; i++){
+            addrs[i] = (erc721Data[i].addr);
+        }
+    }
+
+    function getERC721NftsPawn(uint _loanId, address _addr) public view returns(uint[] nfts){
+        ERC721Data[] storage erc721Data = loanIdToPawn[_loanId].erc721Datas;
+        nfts = new uint[](erc721Data.length);
+
+        for(uint i; i < erc721Data.length; i++){
+            if(erc721Data[i].addr == _addr)
+                return erc721Data[i].nfts;
+        }
+    }
+
     constructor(Engine _engine) public {
         engine = _engine;
     }
