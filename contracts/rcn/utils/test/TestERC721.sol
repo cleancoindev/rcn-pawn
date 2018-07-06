@@ -1,6 +1,6 @@
 pragma solidity ^0.4.19;
 
-import "./../../interfaces/ERC721.sol";
+import "./../../../interfaces/ERC721.sol";
 import './../RpSafeMath.sol';
 
 
@@ -20,10 +20,7 @@ contract TestERC721 is RpSafeMath, ERC721 {
     function totalSupply() public view returns (uint256){ return nfts.length; }
     function balanceOf(address _owner) public view returns (uint) { return ownerNftCount[_owner]; }
     function ownerOf(uint _nftId) public view returns (address) { return nftToOwner[_nftId]; }
-    function name() public view returns (string){ return "test_erc721"; }
-    function symbol() public view returns (string){ return "TEST"; }
     function getApproved(uint _nftId) public view returns (address) { return nftIdToApproved[_nftId]; }
-    function tokenMetadata(uint256) public view returns (string) { return ""; }
 
     function setApprovalForAll(address, bool) public returns (bool) { return false; }
     function isApprovedForAll(address, address) public view returns (bool) { return false; }
@@ -49,23 +46,20 @@ contract TestERC721 is RpSafeMath, ERC721 {
         nftToOwner[_nftId] = _owner;
     }
 
-    function _transfer(address _from, address _to, uint _nftId) private returns(bool) {
-        ownerNftCount[_from ] = safeSubtract(ownerNftCount[_from], 1);
-        ownerNftCount[_to] = safeAdd(ownerNftCount[_to], 1);
+    function transferFrom(address _from, address _to, uint256 _nftId) external payable returns(bool) {
+        address owner = nftToOwner[_nftId];
+        require(owner != 0x0, "the bundle dont exist");
+        require(owner == msg.sender || nftIdToApproved[_nftId] == msg.sender, "sender its not the owner or not approved");
+        require(owner != _to, "the owner and `_to` should not be equal");
+        require(owner == _from, "the owner and `_from` should be equal");
+        require(_to != address(0), "`_to` is the zero address");
+
+        ownerNftCount[_from]--;
+        ownerNftCount[_to]++;
+
         nftToOwner[_nftId] = _to;
 
         emit Transfer(msg.sender, _to, _nftId);
-
-        return true;
-    }
-
-    function transfer(address _to, uint _nftId) public  returns(bool) {
-        require(nftToOwner[_nftId] != 0x0);
-        require(msg.sender == nftToOwner[_nftId]);
-        require(msg.sender != _to);
-        require(_to != address(0));
-
-        _transfer(msg.sender, _to, _nftId);
 
         return true;
     }
@@ -77,19 +71,6 @@ contract TestERC721 is RpSafeMath, ERC721 {
         nftIdToApproved[_nftId] = _to;
 
         emit Approval(msg.sender, _to, _nftId);
-
-        return true;
-    }
-
-    function takeOwnership(uint _nftId) public returns(bool) {
-        require(nftToOwner[_nftId] != 0x0);
-        address oldOwner = nftToOwner[_nftId];
-
-        require(nftIdToApproved[_nftId] == msg.sender);
-
-        delete nftIdToApproved[_nftId];
-
-        _transfer(oldOwner, msg.sender, _nftId);
 
         return true;
     }
