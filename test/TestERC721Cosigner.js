@@ -3,17 +3,16 @@ let NanoLoanEngine = artifacts.require("./NanoLoanEngine.sol");
 
 let TestERC721 = artifacts.require("./TestERC721.sol");
 let ERC721Cosigner = artifacts.require("./ERC721Cosigner.sol");
-let Pawn = artifacts.require("./Pawn.sol");
 //global variables
 //////////////////
-let Helper = require("./helper.js");
+const Helper = require("./helper.js");
+const BigNumber = require('bignumber.js');
+const precision = new BigNumber(10**18);
 
 // contracts
 let rcn;
-let pepe;
 let engine;
 let erc721Cosigner;
-let pawn;
 
 // ERC721 contacts
 let pokemons;
@@ -69,10 +68,8 @@ contract('NanoLoanEngine', function(accounts) {
         borrower       = accounts[2];
         borrowerHelper = accounts[3];
         // deploy contracts
-        rcn    = await TestToken.new();
-        pepe   = await TestToken.new();
         engine = await NanoLoanEngine.new(rcn.address, {from:admin});
-        pawn   = await Pawn.new(engine.address);
+        rcn    = await TestToken.new();
         pokemons = await TestERC721.new();
         await pokemons.addNtf("ratata"  , ratata, lender);
         await pokemons.addNtf("pikachu" , pikachu , borrower);

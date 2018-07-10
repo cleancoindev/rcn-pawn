@@ -1,11 +1,11 @@
 pragma solidity ^0.4.15;
 
-import "./../../interfaces/Cosigner.sol";
-import "./../../utils/BytesUtils.sol";
-import "./../../interfaces/Engine.sol";
-import "./../../interfaces/Token.sol";
-import "./../../interfaces/ERC721.sol";
-import "./../../utils/Ownable.sol";
+import "./rcn/interfaces/Cosigner.sol";
+import "./rcn/interfaces/Engine.sol";
+import "./rcn/interfaces/Token.sol";
+import "./rcn/interfaces/ERC721.sol";
+import "./rcn/utils/BytesUtils.sol";
+import "./rcn/utils/Ownable.sol";
 
 contract ERC721Cosigner is Cosigner, BytesUtils, Ownable {
     mapping(uint => ERC721Data) loanIdToERC721Data;
