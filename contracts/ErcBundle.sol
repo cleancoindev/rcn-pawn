@@ -20,6 +20,8 @@ contract ErcBundle is ERC721, BytesUtils, Ownable, RpSafeMath {
         ERC721[] erc721Addrs; // an array of ERC721 address
     }
 
+    event CreatedBundle(uint256 index, address owner);
+
     // create bundle
     /**
     @notice Create a empty Bundle in bundles array
@@ -27,7 +29,8 @@ contract ErcBundle is ERC721, BytesUtils, Ownable, RpSafeMath {
     function createBundle() public returns(bool) {
         bundleToOwner[bundles.length] = msg.sender;
         addresToBalance[msg.sender]++;
-        bundles.push(Bundle(new Token[](0), new ERC721[](0)));// push two empty array
+        uint256 index = bundles.push(Bundle(new Token[](0), new ERC721[](0))) - 1;// push two emptys arrays
+        emit CreatedBundle(index, msg.sender);
         return true;
     }
     /**
@@ -51,6 +54,7 @@ contract ErcBundle is ERC721, BytesUtils, Ownable, RpSafeMath {
         } else {
             bundle.erc20ToBalance[_erc20] = safeAdd(bundle.erc20ToBalance[_erc20], _amount);
         }
+
         return true;
     }
     /**
@@ -75,6 +79,7 @@ contract ErcBundle is ERC721, BytesUtils, Ownable, RpSafeMath {
             require(_erc721.transferFrom(msg.sender, address(this), _nfts[i]), "the transfer its no approved");
             nfts.push(_nfts[i]);
         }
+        
         return true;
     }
 
