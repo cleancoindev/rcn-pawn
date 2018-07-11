@@ -17,13 +17,10 @@ contract TestERC721 is RpSafeMath, ERC721 {
     mapping (uint => address) nftIdToApproved;
     mapping (address => uint) ownerNftCount;
 
-    function totalSupply() public view returns (uint256){ return nfts.length; }
     function balanceOf(address _owner) public view returns (uint) { return ownerNftCount[_owner]; }
     function ownerOf(uint _nftId) public view returns (address) { return nftToOwner[_nftId]; }
     function getApproved(uint _nftId) public view returns (address) { return nftIdToApproved[_nftId]; }
 
-    function setApprovalForAll(address, bool) public returns (bool) { return false; }
-    function isApprovedForAll(address, address) public view returns (bool) { return false; }
 
     function getNftsByOwner(address _owner) external view returns(uint[]) {
         uint[] memory result = new uint[](ownerNftCount[_owner]);
