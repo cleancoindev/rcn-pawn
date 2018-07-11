@@ -23,7 +23,7 @@ const dueTime = 86400;
 let loanId;
 let cosignerData;
 
-contract('NanoLoanEngine', function(accounts) {
+contract('TestERC721Cosigner', function(accounts) {
     async function assertThrow(promise) {
       try {
         await promise;
@@ -41,7 +41,7 @@ contract('NanoLoanEngine', function(accounts) {
       assert.fail('Expected throw not received');
     };
 
-    beforeEach("Create engine and token", async function(){
+    beforeEach("Assign accounts, create engine, tokens and erc721Cosigner", async function(){
         // set account addresses
         admin          = accounts[0];
         lender         = accounts[1];
