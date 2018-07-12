@@ -148,8 +148,7 @@ contract ERC721Base {
     function isAuthorized(address operator, uint256 assetId) external view returns (bool) {
         return _isAuthorized(operator, assetId);
     }
-    function _isAuthorized(address operator, uint256 assetId) internal view returns (bool)
-    {
+    function _isAuthorized(address operator, uint256 assetId) internal view returns (bool){
         require(operator != 0);
         address owner = _ownerOf(assetId);
         if (operator == owner) {
