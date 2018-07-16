@@ -11,8 +11,11 @@ interface ERC721 {
 }
 
 contract Bundle is ERC721Base, BytesUtils, RpSafeMath {
+    uint256 private constant MAX_UINT256 = uint256(0) - uint256(1);
+
     Bundle[] private bundles;
 
+    event Created(address owner, uint256 id);
     event Deposit(address sender, uint256 bundle, address token, uint256 id);
     event Withdraw(address retriever, uint256 bundle, address token, uint256 id);
 
@@ -48,6 +51,7 @@ contract Bundle is ERC721Base, BytesUtils, RpSafeMath {
     function create() public returns (uint256 id) {
         id = bundles.length;
         bundles.length++;
+        emit Created(msg.sender, id);
         _generate(id, msg.sender);
     }
 
@@ -77,6 +81,42 @@ contract Bundle is ERC721Base, BytesUtils, RpSafeMath {
         return true;
     }
 
+    function withdraw(
+        uint256 bundleId,
+        ERC721 token,
+        uint256 tokenId,
+        address to
+    ) external canWithdraw(bundleId) returns (bool) {
+        return _withdraw(bundleId, token, tokenId, to);
+    }
+
+    function withdrawBatch(
+        uint256 bundleId,
+        ERC721[] tokens,
+        uint256[] ids,
+        address to
+    ) external canWithdraw(bundleId) returns (bool) {
+        for (uint256 i = 0; i < tokens.length; i++) {
+            require(_withdraw(bundleId, tokens[i], ids[i], to));
+        }
+
+        return true;
+    }
+
+    function withdrawAll(
+        uint256 bundleId,
+        address to
+    ) external canWithdraw(bundleId) returns (bool) {
+        Bundle storage bundle = bundles[bundleId];
+        uint256 i = bundle.ids.length - 1;
+
+        for (;i != MAX_UINT256; i--) {
+            require(_withdraw(bundleId, ERC721(bundle.tokens[i]), bundle.ids[i], to));
+        }
+
+        return true;
+    }
+
     function _deposit(
         uint256 bundleId,
         ERC721 token,
@@ -93,12 +133,12 @@ contract Bundle is ERC721Base, BytesUtils, RpSafeMath {
         return true;
     }
 
-    function withdraw(
+    function _withdraw(
         uint256 bundleId,
         ERC721 token,
         uint256 tokenId,
         address to
-    ) public canWithdraw(bundleId) {
+    ) internal returns (bool) {
         Bundle storage bundle = bundles[bundleId];
         _remove(bundle, token, tokenId);
 
@@ -106,6 +146,8 @@ contract Bundle is ERC721Base, BytesUtils, RpSafeMath {
 
         token.transferFrom(this, to, tokenId);
         require(token.ownerOf(tokenId) == to, "ERC721 transfer failed");
+
+        return true;
     }
 
     function _add(

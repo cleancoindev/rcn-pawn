@@ -57,6 +57,10 @@ contract('TestBundle', function(accounts) {
       assert.fail('Expected throw not received');
     };
 
+    before("Create the bundle contract", async function() {
+      bundle = await Bundle.new();
+    })
+
     beforeEach("Create Bundle, ERC20, ERC721 contracts", async function(){
         // set account addresses
         user  = accounts[1];
@@ -83,13 +87,14 @@ contract('TestBundle', function(accounts) {
         await magicCards.addNtf("ent"        , ent        , user);
         await magicCards.addNtf("orc"        , orc        , user);
 
-        bundle = await Bundle.new();
         poach = await Poach.new();
     });
 
     it("test createBundle()", async() => {
-        await bundle.create({from: user2});
-        await bundle.create({from: user});
+        let receipt = await bundle.create({from: user2});
+        const bundle1 = receipt.logs[1].args._tokenId;
+        receipt = await bundle.create({from: user});
+        const bundle2 = receipt.logs[1].args._tokenId;
 
         assert.equal(await bundle.ownerOf(2), user, "check bundle 2 ownership");
 
@@ -109,10 +114,11 @@ contract('TestBundle', function(accounts) {
     });
 
     it("test add erc20 to a bundle", async() => {
-        await bundle.create({from: user});
+        const receipt = await bundle.create({from: user});
+        const bundleId = receipt.logs[1].args._tokenId;
+
         const prevRcnBal = await rcn.balanceOf(user);
         const prevPepeCoinBal = await pepeCoin.balanceOf(user);
-        const bundleId = 1;
 
         await rcn.approve(poach.address, web3.toWei(5), {from:user});
         await pepeCoin.approve(poach.address, web3.toWei(6), {from:user});
@@ -158,9 +164,9 @@ contract('TestBundle', function(accounts) {
     });
 
     it("test add erc721 to a bundle", async() => {
-        await bundle.create({from: user});
-        const bundleId = 1;
-
+        const receipt = await bundle.create({from: user});
+        const bundleId = receipt.logs[1].args._tokenId;
+    
         // pokemons
         await pokemons.approve(bundle.address, pikachu, {from:user});
         await pokemons.approve(bundle.address, clefairy, {from:user});
@@ -207,10 +213,11 @@ contract('TestBundle', function(accounts) {
     });
 
     it("test withdraw erc20 from a bundle", async() => {
-        await bundle.create({from: user});
+        const receipt = await bundle.create({from: user});
+        const bundleId = receipt.logs[1].args._tokenId;
+
         const prevRcnBal = await rcn.balanceOf(user);
         const prevPepeCoinBal = await pepeCoin.balanceOf(user);
-        const bundleId = 1;
 
         // add erc20
         await rcn.approve(poach.address, web3.toWei(5), {from:user});
@@ -260,9 +267,8 @@ contract('TestBundle', function(accounts) {
     });
 
     it("test withdraw erc721 from a bundle", async() => {
-        await bundle.create({from: user});
-        const bundleId = 1;
-
+        const receipt = await bundle.create({from: user});
+        const bundleId = receipt.logs[1].args._tokenId;
         // pokemons
         await pokemons.approve(bundle.address, pikachu, {from:user});
         await pokemons.approve(bundle.address, clefairy, {from:user});
@@ -293,4 +299,131 @@ contract('TestBundle', function(accounts) {
         assert.equal(await pokemons.ownerOf(clefairy), user);
         assert.equal(await pokemons.ownerOf(pikachu), user);
     });
+
+    it("Should withdraw a single item from a bundle", async() => {
+      const receipt = await bundle.create({from: user});
+      const bundleId = receipt.logs[1].args._tokenId;
+      
+      await pokemons.approve(bundle.address, pikachu, {from:user});
+      await pokemons.approve(bundle.address, clefairy, {from:user});
+      await bundle.depositBatch(bundleId, [pokemons.address, pokemons.address], [pikachu, clefairy], {from: user});
+
+      await bundle.withdraw(bundleId, pokemons.address, clefairy, user, {from: user});
+      assert.equal(await pokemons.ownerOf(clefairy), user);
+      assert.equal(await pokemons.ownerOf(pikachu), bundle.address);
+
+      await bundle.withdraw(bundleId, pokemons.address, pikachu, user, {from: user});
+      assert.equal(await pokemons.ownerOf(pikachu), user);
+    })
+
+    it("Should not allow to withdraw if lacks permissions", async() => {
+      const receipt = await bundle.create({from: user});
+      const bundleId = receipt.logs[1].args._tokenId;
+      
+      await pokemons.approve(bundle.address, pikachu, {from:user});
+      await pokemons.approve(bundle.address, clefairy, {from:user});
+      await bundle.depositBatch(bundleId, [pokemons.address, pokemons.address], [pikachu, clefairy], {from: user});
+
+      try { // try to withdraw a deleted ERC20 id
+        await bundle.withdraw(bundleId, pokemons.address, clefairy, user, {from: user2});
+        assert(false, "throw was expected in line above.")
+      } catch(e){
+        assert(Helper.isRevertErrorMessage(e), "expected throw but got: " + e);
+      }
+
+      assert.equal(await pokemons.ownerOf(clefairy), bundle.address);
+      assert.equal(await pokemons.ownerOf(pikachu), bundle.address);
+
+      try { // try to withdraw a deleted ERC20 id
+        await bundle.withdraw(bundleId, pokemons.address, pikachu, user2, {from: user2});
+        assert(false, "throw was expected in line above.")
+      } catch(e){
+        assert(Helper.isRevertErrorMessage(e), "expected throw but got: " + e);
+      }
+
+      assert.equal(await pokemons.ownerOf(clefairy), bundle.address);
+      assert.equal(await pokemons.ownerOf(pikachu), bundle.address);
+    })
+
+    it("Should withdraw a list of items", async() => {
+      const receipt = await bundle.create({from: user});
+      const bundleId = receipt.logs[1].args._tokenId;
+      
+      await pokemons.setApprovalForAll(bundle.address, true, {from:user});
+      await magicCards.setApprovalForAll(bundle.address, true, {from:user});
+      await pokemons.transferFrom(user2, user, ratata, {from:user2})
+
+      const tokens = [pokemons.address, pokemons.address, pokemons.address, pokemons.address, magicCards.address, pokemons.address]
+      const items = [pikachu, clefairy, ratata, mewtwo, ent, vulpix]
+
+      await bundle.depositBatch(bundleId, tokens, items, {from: user});
+      await bundle.transferFrom(user, user2, bundleId, {from: user})
+
+      const wtokens = [pokemons.address, pokemons.address, magicCards.address]
+      const witems = [pikachu, mewtwo, ent]
+
+      await bundle.withdrawBatch(bundleId, wtokens, witems, user2, {from:user2})
+      assert.equal(await pokemons.ownerOf(pikachu), user2);
+      assert.equal(await pokemons.ownerOf(clefairy), bundle.address);
+      assert.equal(await pokemons.ownerOf(vulpix), bundle.address);
+      assert.equal(await pokemons.ownerOf(mewtwo), user2);
+      assert.equal(await magicCards.ownerOf(ent), user2);
+      assert.equal(await pokemons.ownerOf(vulpix), bundle.address);
+    })
+
+    it("Should fail to withdraw a list of items", async() => {
+      const receipt = await bundle.create({from: user});
+      const bundleId = receipt.logs[1].args._tokenId;
+      
+      await pokemons.setApprovalForAll(bundle.address, true, {from:user});
+      await magicCards.setApprovalForAll(bundle.address, true, {from:user});
+      await pokemons.transferFrom(user2, user, ratata, {from:user2})
+
+      const tokens = [pokemons.address, pokemons.address, pokemons.address, pokemons.address, magicCards.address, pokemons.address]
+      const items = [pikachu, clefairy, ratata, mewtwo, ent, vulpix]
+
+      await bundle.depositBatch(bundleId, tokens, items, {from: user});
+      await bundle.transferFrom(user, user2, bundleId, {from: user})
+
+      const wtokens = [pokemons.address, pokemons.address, magicCards.address]
+      const witems = [pikachu, mewtwo, ent]
+
+      try { // try to withdraw a deleted ERC20 id
+        await bundle.withdrawBatch(bundleId, wtokens, witems, user2, {from:user})
+        assert(false, "throw was expected in line above.")
+      } catch(e){
+        assert(Helper.isRevertErrorMessage(e), "expected throw but got: " + e);
+      }
+
+      assert.equal(await pokemons.ownerOf(pikachu), bundle.address);
+      assert.equal(await pokemons.ownerOf(clefairy), bundle.address);
+      assert.equal(await pokemons.ownerOf(vulpix), bundle.address);
+      assert.equal(await pokemons.ownerOf(mewtwo), bundle.address);
+      assert.equal(await magicCards.ownerOf(ent), bundle.address);
+      assert.equal(await pokemons.ownerOf(vulpix), bundle.address);
+    })
+
+    it("Should withdraw all items", async() => {
+      const receipt = await bundle.create({from: user});
+      const bundleId = receipt.logs[1].args._tokenId;
+      
+      await pokemons.setApprovalForAll(bundle.address, true, {from:user});
+      await magicCards.setApprovalForAll(bundle.address, true, {from:user});
+      await pokemons.transferFrom(user2, user, ratata, {from:user2})
+
+      const tokens = [pokemons.address, pokemons.address, pokemons.address, pokemons.address, magicCards.address, pokemons.address]
+      const items = [pikachu, clefairy, ratata, mewtwo, ent, vulpix]
+
+      await bundle.depositBatch(bundleId, tokens, items, {from: user});
+      await bundle.transferFrom(user, user2, bundleId, {from: user})
+
+      await bundle.withdrawAll(bundleId, user2, {from:user2})
+      assert.equal((await bundle.content(bundleId))[0].length, 0);
+      assert.equal(await pokemons.ownerOf(pikachu), user2);
+      assert.equal(await pokemons.ownerOf(clefairy), user2);
+      assert.equal(await pokemons.ownerOf(vulpix), user2);
+      assert.equal(await pokemons.ownerOf(mewtwo), user2);
+      assert.equal(await magicCards.ownerOf(ent), user2);
+      assert.equal(await pokemons.ownerOf(vulpix), user2);
+    })
 });
