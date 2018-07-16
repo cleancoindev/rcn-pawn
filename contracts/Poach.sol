@@ -1,3 +1,5 @@
+pragma solidity ^0.4.24;
+
 
 import "./ERC721Base.sol";
 import "./interfaces/Token.sol";
@@ -13,8 +15,13 @@ contract Poach is ERC721Base, RpSafeMath {
     Pair[] public poaches;
 
     modifier alive(uint256 id) {
-        require(poaches[id].alive);
-        _;
+      require(poaches[id].alive, "the pair its not alive");
+      _;
+    }
+
+    function getPair(uint poachId) view public returns(address, uint, bool) {
+        Pair storage poach = poaches[poachId];
+        return (poach.token, poach.amount, poach.alive);
     }
 
     function create(
@@ -30,7 +37,7 @@ contract Poach is ERC721Base, RpSafeMath {
     function deposit(
         uint256 id,
         uint256 amount
-    ) public returns (bool) {
+    ) public alive(id) returns (bool) {
         Pair storage pair = poaches[id];
         require(pair.token.transferFrom(msg.sender, this, amount));
         pair.amount = safeAdd(pair.amount, amount);
