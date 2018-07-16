@@ -1,4 +1,4 @@
-pragma solidity ^0.4.18;
+pragma solidity ^0.4.24;
 
 
 interface IERC721Receiver {
@@ -169,6 +169,7 @@ contract ERC721Base {
     function setApprovalForAll(address operator, bool authorized) external returns (bool) {
         return _setApprovalForAll(operator, authorized);
     }
+
     function _setApprovalForAll(address operator, bool authorized) internal returns (bool) {
         if (authorized) {
             require(!_isApprovedForAll(operator, msg.sender));
@@ -179,6 +180,14 @@ contract ERC721Base {
         }
         emit ApprovalForAll(operator, msg.sender, authorized);
         return true;
+    }
+
+    function _addAuthorization(address operator, address holder) private {
+        _operators[holder][operator] = true;
+    }
+
+    function _clearAuthorization(address operator, address holder) private {
+        _operators[holder][operator] = false;
     }
 
     /**
@@ -194,14 +203,6 @@ contract ERC721Base {
             emit Approval(holder, operator, assetId);
         }
         return true;
-    }
-
-    function _addAuthorization(address operator, address holder) private {
-        _operators[holder][operator] = true;
-    }
-
-    function _clearAuthorization(address operator, address holder) private {
-        _operators[holder][operator] = false;
     }
 
     //
