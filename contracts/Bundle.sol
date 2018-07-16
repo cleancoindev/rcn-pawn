@@ -13,136 +13,135 @@ interface ERC721 {
 contract Bundle is ERC721Base, BytesUtils, RpSafeMath {
     uint256 private constant MAX_UINT256 = uint256(0) - uint256(1);
 
-    Bundle[] private bundles;
+    Package[] private packages;
 
     event Created(address owner, uint256 id);
     event Deposit(address sender, uint256 bundle, address token, uint256 id);
     event Withdraw(address retriever, uint256 bundle, address token, uint256 id);
 
-    struct Bundle {
+    struct Package {
         address[] tokens;
         uint256[] ids;
         mapping(address => mapping(uint256 => uint256)) order;
     }
 
     constructor() public {
-        bundles.length++;
+        packages.length++;
     }
 
-    modifier canWithdraw(uint256 bundleId) {
-        require(_isAuthorized(msg.sender, bundleId), "Not authorized for withdraw");
+    modifier canWithdraw(uint256 packageId) {
+        require(_isAuthorized(msg.sender, packageId), "Not authorized for withdraw");
         _;
     }
 
-    function canDeposit(uint256 bundleId) public view returns (bool) {
-        return _isAuthorized(msg.sender, bundleId);
+    function canDeposit(uint256 packageId) public view returns (bool) {
+        return _isAuthorized(msg.sender, packageId);
     }
 
     function content(uint256 id) external view returns (address[] tokens, uint256[] ids) {
-        Bundle memory bundle = bundles[id];
-        tokens = bundle.tokens;
-        ids = bundle.ids;
+        Package memory package = packages[id];
+        tokens = package.tokens;
+        ids = package.ids;
     }
 
-    // create bundle
+    // create package
     /**
-    @notice Create a empty Bundle in bundles array
+    @notice Create a empty Package in packages array
     */
     function create() public returns (uint256 id) {
-        id = bundles.length;
-        bundles.length++;
+        id = packages.length;
+        packages.length++;
         emit Created(msg.sender, id);
         _generate(id, msg.sender);
     }
 
     function deposit(
-        uint256 _bundleId,
+        uint256 _packageId,
         ERC721 token,
         uint256 tokenId
     ) external returns (bool) {
-        uint256 bundleId = _bundleId == 0 ? create() : _bundleId;
-        require(canDeposit(bundleId), "Not authorized for deposit");
-        return _deposit(bundleId, token, tokenId);
+        uint256 packageId = _packageId == 0 ? create() : _packageId;
+        require(canDeposit(packageId), "Not authorized for deposit");
+        return _deposit(packageId, token, tokenId);
     }
 
     function depositBatch(
-        uint256 _bundleId,
+        uint256 _packageId,
         ERC721[] tokens,
         uint256[] ids
     ) external returns (bool) {
-        uint256 bundleId = _bundleId == 0 ? create() : _bundleId;
-        require(canDeposit(bundleId), "Not authorized for deposit");
+        uint256 packageId = _packageId == 0 ? create() : _packageId;
+        require(canDeposit(packageId), "Not authorized for deposit");
 
         require(tokens.length == ids.length);
         for (uint256 i = 0; i < ids.length; i++) {
-            require(_deposit(bundleId, tokens[i], ids[i]));
+            require(_deposit(packageId, tokens[i], ids[i]));
         }
 
         return true;
     }
 
     function withdraw(
-        uint256 bundleId,
+        uint256 packageId,
         ERC721 token,
         uint256 tokenId,
         address to
-    ) external canWithdraw(bundleId) returns (bool) {
-        return _withdraw(bundleId, token, tokenId, to);
+    ) public canWithdraw(packageId) returns (bool) {
+        return _withdraw(packageId, token, tokenId, to);
     }
 
     function withdrawBatch(
-        uint256 bundleId,
+        uint256 packageId,
         ERC721[] tokens,
         uint256[] ids,
         address to
-    ) external canWithdraw(bundleId) returns (bool) {
+    ) external canWithdraw(packageId) returns (bool) {
         for (uint256 i = 0; i < tokens.length; i++) {
-            require(_withdraw(bundleId, tokens[i], ids[i], to));
+            require(_withdraw(packageId, tokens[i], ids[i], to));
         }
 
         return true;
     }
 
     function withdrawAll(
-        uint256 bundleId,
+        uint256 packageId,
         address to
-    ) external canWithdraw(bundleId) returns (bool) {
-        Bundle storage bundle = bundles[bundleId];
-        uint256 i = bundle.ids.length - 1;
+    ) external canWithdraw(packageId) returns (bool) {
+        Package storage package = packages[packageId];
+        uint256 i = package.ids.length - 1;
 
         for (;i != MAX_UINT256; i--) {
-            require(_withdraw(bundleId, ERC721(bundle.tokens[i]), bundle.ids[i], to));
+            require(_withdraw(packageId, ERC721(package.tokens[i]), package.ids[i], to));
         }
 
         return true;
     }
 
     function _deposit(
-        uint256 bundleId,
+        uint256 packageId,
         ERC721 token,
         uint256 tokenId
     ) internal returns (bool) {
         token.transferFrom(msg.sender, address(this), tokenId);
         require(token.ownerOf(tokenId) == address(this), "ERC721 transfer failed");
 
-        Bundle storage bundle = bundles[bundleId];
-        _add(bundle, token, tokenId);
+        Package storage package = packages[packageId];
+        _add(package, token, tokenId);
 
-        emit Deposit(msg.sender, bundleId, token, tokenId);
+        emit Deposit(msg.sender, packageId, token, tokenId);
 
         return true;
     }
 
     function _withdraw(
-        uint256 bundleId,
+        uint256 packageId,
         ERC721 token,
         uint256 tokenId,
         address to
     ) internal returns (bool) {
-        Bundle storage bundle = bundles[bundleId];
-        _remove(bundle, token, tokenId);
-
-        emit Withdraw(msg.sender, bundleId, token, tokenId);
+        Package storage package = packages[packageId];
+        _remove(package, token, tokenId);
+        emit Withdraw(msg.sender, packageId, token, tokenId);
 
         token.transferFrom(this, to, tokenId);
         require(token.ownerOf(tokenId) == to, "ERC721 transfer failed");
@@ -151,50 +150,50 @@ contract Bundle is ERC721Base, BytesUtils, RpSafeMath {
     }
 
     function _add(
-        Bundle storage bundle,
+        Package storage package,
         ERC721 token,
         uint256 id
     ) internal {
-        uint256 position = bundle.order[token][id];
-        require(!_isAsset(bundle, position, token, id), "Already exist");
-        position = bundle.tokens.length;
-        bundle.tokens.push(token);
-        bundle.ids.push(id);
-        bundle.order[token][id] = position;
+        uint256 position = package.order[token][id];
+        require(!_isAsset(package, position, token, id), "Already exist");
+        position = package.tokens.length;
+        package.tokens.push(token);
+        package.ids.push(id);
+        package.order[token][id] = position;
     }
 
     function _remove(
-        Bundle storage bundle,
+        Package storage package,
         ERC721 token,
         uint256 id
     ) internal {
-        uint256 delPosition = bundle.order[token][id];
-        require(_isAsset(bundle, delPosition, token, id), "The token does not exist inside the bundle");
+        uint256 delPosition = package.order[token][id];
+        require(_isAsset(package, delPosition, token, id), "The token does not exist inside the package");
 
         // Replace item to remove with last item
         // (make the item to remove the last one)
-        uint256 lastPosition = bundle.tokens.length - 1;
+        uint256 lastPosition = package.tokens.length - 1;
         if (lastPosition != delPosition) {
-            address lastToken = bundle.tokens[lastPosition];
-            uint256 lastId = bundle.ids[lastPosition];
-            bundle.tokens[delPosition] = lastToken;
-            bundle.ids[delPosition] = lastId;
-            bundle.order[lastToken][lastId] = delPosition;
+            address lastToken = package.tokens[lastPosition];
+            uint256 lastId = package.ids[lastPosition];
+            package.tokens[delPosition] = lastToken;
+            package.ids[delPosition] = lastId;
+            package.order[lastToken][lastId] = delPosition;
         }
-        
+
         // Remove last position
-        bundle.tokens.length--;
-        bundle.ids.length--;
-        delete bundle.order[token][id];
+        package.tokens.length--;
+        package.ids.length--;
+        delete package.order[token][id];
     }
 
     function _isAsset(
-        Bundle memory bundle,
+        Package memory package,
         uint256 position,
         address token,
         uint256 id
     ) internal pure returns (bool) {
-        return position != 0 || 
-            (bundle.ids.length != 0 && bundle.tokens[position] == token && bundle.ids[position] == id);
+        return position != 0 ||
+            (package.ids.length != 0 && package.tokens[position] == token && package.ids[position] == id);
     }
 }
