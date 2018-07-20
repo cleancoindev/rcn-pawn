@@ -1,5 +1,5 @@
-module.exports.toInterestRate = function(interest, time) {
-    return (10000000 / interest) * 360 * time;
+module.exports.toInterestRate = function(r) {
+    return Math.trunc(10000000/r);
 }
 
 module.exports.now = function() {

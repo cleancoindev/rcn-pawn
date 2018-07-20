@@ -3,6 +3,7 @@ pragma solidity ^0.4.24;
 import "./rcn/utils/BytesUtils.sol";
 import "./rcn/utils/RpSafeMath.sol";
 import "./rcn/utils/Ownable.sol";
+
 import "./ERC721Base.sol";
 
 interface ERC721 {

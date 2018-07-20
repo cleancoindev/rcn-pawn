@@ -1,8 +1,9 @@
 pragma solidity ^0.4.24;
 
 
-import "./ERC721Base.sol";
 import "./interfaces/Token.sol";
+
+import "./ERC721Base.sol";
 import "./rcn/utils/RpSafeMath.sol";
 
 contract Poach is ERC721Base, RpSafeMath {
