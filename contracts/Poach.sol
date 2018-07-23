@@ -15,6 +15,10 @@ contract Poach is ERC721Base, RpSafeMath {
 
     Pair[] public poaches;
 
+    constructor() public {
+        poaches.length++;
+    }
+
     modifier alive(uint256 id) {
       require(poaches[id].alive, "the pair its not alive");
       _;
