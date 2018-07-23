@@ -272,8 +272,6 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, Ownable {
     }
 
     function claim(address _engine, uint256 _loanId, bytes ) public returns (bool) {
-        //Engine engine = Engine(_engine);
-
         uint256 pawnId = loanToLiability[_engine][_loanId];
         Pawn storage pawn = pawns[pawnId];
         // Validate that the pawn wasn't claimed
