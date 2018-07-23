@@ -1,7 +1,5 @@
 pragma solidity ^0.4.19;
 
-// import "./../../../interfaces/ERC721.sol";
-// import './../RpSafeMath.sol';
 import "./../../../ERC721Base.sol";
 
 contract TestERC721 is ERC721Base {
