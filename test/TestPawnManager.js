@@ -4,7 +4,6 @@ let Bundle = artifacts.require("./Bundle.sol");
 let Poach = artifacts.require("./Poach.sol");
 let PawnManager = artifacts.require("./PawnManager.sol");
 
-
 let TestToken = artifacts.require("./rcn/utils/test/TestToken.sol");
 let TestERC721 = artifacts.require("./rcn/utils/test/TestERC721.sol");
 
@@ -71,7 +70,7 @@ let ids;
 let customLoanId;
 let customPawnId;
 
-contract('TestBundle', function(accounts) {
+contract('TestPawnManager', function(accounts) {
     async function assertThrow(promise) {
       try {
         await promise;
