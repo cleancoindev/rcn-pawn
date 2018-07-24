@@ -96,7 +96,7 @@ contract('TestPawnManager', function(accounts) {
         otherUser  = accounts[4];
     });
 
-    beforeEach("Create Bundle, ERC20, ERC721 contracts", async function(){
+    beforeEach("Create contracts and set standard escenary", async function(){
         // deploy contracts
         // ERC20
         rcn = await TestToken.new();
