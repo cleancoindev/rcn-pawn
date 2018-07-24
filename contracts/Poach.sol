@@ -1,8 +1,9 @@
 pragma solidity ^0.4.24;
 
 
-import "./ERC721Base.sol";
 import "./interfaces/Token.sol";
+
+import "./ERC721Base.sol";
 import "./rcn/utils/RpSafeMath.sol";
 
 contract Poach is ERC721Base, RpSafeMath {
@@ -13,6 +14,10 @@ contract Poach is ERC721Base, RpSafeMath {
     }
 
     Pair[] public poaches;
+
+    constructor() public {
+        poaches.length++;
+    }
 
     modifier alive(uint256 id) {
       require(poaches[id].alive, "the pair its not alive");

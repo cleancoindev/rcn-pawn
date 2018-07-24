@@ -1,5 +1,5 @@
 module.exports.toInterestRate = function(interest, time) {
-    return (10000000 / interest) * 360 * time;
+    return Math.trunc((10000000 / interest) * 360 * time);
 }
 
 module.exports.now = function() {
@@ -17,6 +17,16 @@ module.exports.isRevertErrorMessage = function( error ) {
     if( error.message.search('out of gas') >= 0 ) return true;
     return false;
 };
+
+module.exports.toBytes32 = function(source) {
+    const rl = 64;
+    source = source.toString().replace("0x", "");
+    if (source.length < rl) {
+        const diff = 64 - source.length;
+        source = "0".repeat(diff) + source;
+    }
+    return "0x" + source;
+}
 
 module.exports.hexArrayToBytesOfBytes32 = function(array) {
     let bytes = "0x";
