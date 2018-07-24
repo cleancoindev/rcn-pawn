@@ -241,6 +241,72 @@ contract('TestPawnManager', function(accounts) {
         assert.equal(await pokemons.ownerOf(pikachu), borrower);
     });
 
+    it("test: transfer a pawn, pay, claim and withdraw", async() => {
+        let packageId = await pawnManager.getPawnPackageId(customPawnId);
+        rcn.approve(rcnEngine.address, loanParams[0], {from:lender});
+
+        try { // Try to transfer a pawn without be the owner
+            await pawnManager.transferFrom(borrower, otherUser, customPawnId, {from: borrower});
+            assert(false, "throw was expected in line above.")
+        } catch(e){
+            assert(Helper.isRevertErrorMessage(e), "expected throw but got: " + e);
+        }
+
+        await rcnEngine.lend(customLoanId, [], pawnManager.address, Helper.toBytes32(customPawnId), {from:lender});
+
+        try { // Try to transfer a pawn without be the owner
+            await pawnManager.transferFrom(lender, otherUser, customPawnId, {from: lender});
+            assert(false, "throw was expected in line above.")
+        } catch(e){
+            assert(Helper.isRevertErrorMessage(e), "expected throw but got: " + e);
+        }
+
+        await pawnManager.transferFrom(borrower, otherUser, customPawnId, {from: borrower});
+
+        assert.equal(await bundle.ownerOf(packageId), pawnManager.address);
+        assert.equal(await pawnManager.ownerOf(customPawnId), otherUser);
+        assert.equal(await pawnManager.getPawnOwner(customPawnId), borrower);
+
+        await rcn.approve(rcnEngine.address, web3.toWei("250"), {from: borrowerHelper});
+        await rcnEngine.pay(customLoanId, web3.toWei("250"), borrowerHelper, [], {from: borrowerHelper});
+
+        try { // Try to claim a pawn without be the actual owner
+            await pawnManager.claim(rcnEngine.address, customLoanId, "", {from: borrower});
+            assert(false, "throw was expected in line above.")
+        } catch(e){
+            assert(Helper.isRevertErrorMessage(e), "expected throw but got: " + e);
+        }
+
+        await pawnManager.claim(rcnEngine.address, customLoanId, "", {from: otherUser});
+
+        assert.equal(await pawnManager.ownerOf(packageId), 0x0);
+        try { // try withdraw all tokens of a pawn without be the actual owner
+            await bundle.withdrawAll(packageId, lender, {from: borrower});
+            assert(false, "throw was expected in line above.")
+        } catch(e){
+            assert(Helper.isRevertErrorMessage(e), "expected throw but got: " + e);
+        }
+
+        assert.equal(await bundle.ownerOf(packageId), otherUser);
+
+        let pawnPackage = await bundle.content(packageId);
+
+        await bundle.withdrawAll(packageId, borrowerHelper, {from: otherUser});
+
+        assert.equal(await bundle.ownerOf(packageId), otherUser);
+
+        let prevBal = await pepeCoin.balanceOf(borrowerHelper);
+
+        await poach.destroy(pawnPackage[1][0], {from: borrowerHelper});
+        pair = await poach.getPair(pawnPackage[1][0]);
+        assert.equal(pair[2], false);
+
+        let bal = await pepeCoin.balanceOf(borrowerHelper);
+        assert.equal(bal.toString(), prevBal.plus(amounts[0]).toString());
+
+        assert.equal(await pokemons.ownerOf(pikachu), borrowerHelper);
+    });
+
     it("test: lend a loan with a pawn as cosigner, pay and claim (as borrower)", async() => {
         let packageId = await pawnManager.getPawnPackageId(customPawnId);
         rcn.approve(rcnEngine.address, loanParams[0], {from:lender});
