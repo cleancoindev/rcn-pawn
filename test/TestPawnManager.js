@@ -374,4 +374,47 @@ contract('TestPawnManager', function(accounts) {
 
         assert.equal(await pokemons.ownerOf(pikachu), borrower);
     });
+
+    it("test: lend a loan with a pawn as cosigner and claim when the loan is defaulted (as lender)", async() => {
+        let packageId = await pawnManager.getPawnPackageId(customPawnId);
+        rcn.approve(rcnEngine.address, loanParams[0], {from:lender});
+
+        await rcnEngine.lend(customLoanId, [], pawnManager.address, Helper.toBytes32(customPawnId), {from:lender});
+        Helper.timeTravel(loanDuration);
+
+        try { // try borrower claim pawn with paid loan
+            await pawnManager.claim(rcnEngine.address, customLoanId, "", {from: borrower});
+            assert(false, "throw was expected in line above.")
+        } catch(e){
+            assert(Helper.isRevertErrorMessage(e), "expected throw but got: " + e);
+        }
+
+        await pawnManager.claim(rcnEngine.address, customLoanId, "", {from: lender});
+
+        assert.equal((await pawnManager.getPawnStatus(customPawnId)).toNumber(), Status.Defaulted);
+
+        assert.equal(await bundle.ownerOf(packageId), lender);
+
+        pawnPackage = await bundle.content(packageId);
+        assert.equal(pawnPackage[0][0], poach.address);
+        assert.equal(pawnPackage[0][1], pokemons.address);
+        assert.equal(pawnPackage[1][1], ids[0]);
+
+        try { // try withdraw all tokens of a defaulted pawn as borrower
+            await bundle.withdrawAll(packageId, borrower, {from: borrower});
+            assert(false, "throw was expected in line above.")
+        } catch(e){
+            assert(Helper.isRevertErrorMessage(e), "expected throw but got: " + e);
+        }
+
+        await bundle.withdrawAll(packageId, lender, {from: lender});
+
+        let prevBal = await pepeCoin.balanceOf(lender);
+        await poach.destroy(pawnPackage[1][0], {from: lender});
+        pair = await poach.getPair(pawnPackage[1][0]);
+        assert.equal(pair[2], false);
+        let bal = await pepeCoin.balanceOf(lender);
+        assert.equal(bal.toString(), prevBal.plus(amounts[0]).toString());
+        assert.equal(await pokemons.ownerOf(pikachu), lender);
+    });
 });
