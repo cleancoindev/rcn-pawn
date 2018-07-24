@@ -363,6 +363,13 @@ contract('TestPawnManager', function(accounts) {
         assert.equal(pawnPackage[0][1], pokemons.address);
         assert.equal(pawnPackage[1][1], ids[0]);
 
+        try { // try withdraw all tokens of a defaulted pawn as lender
+            await bundle.withdrawAll(packageId, lender, {from: lender});
+            assert(false, "throw was expected in line above.")
+        } catch(e){
+            assert(Helper.isRevertErrorMessage(e), "expected throw but got: " + e);
+        }
+
         await bundle.withdrawAll(packageId, borrower, {from: borrower});
 
         let prevBal = await pepeCoin.balanceOf(borrower);
