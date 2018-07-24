@@ -155,11 +155,11 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, Ownable {
         loanToLiability[engine][loanId] = pawnId;
 
         emit RequestedPawn({
-            _pawnId:    pawnId,
-            _borrower:  borrower,
-            _engine:    engine,
-            _loanId:    loanId,
-            _packageId: packageId
+            pawnId:    pawnId,
+            borrower:  borrower,
+            engine:    engine,
+            loanId:    loanId,
+            packageId: packageId
         });
     }
 

@@ -219,7 +219,7 @@ contract('TestBundle', function(accounts) {
         }
 
         const cancelPawnReceipt = await pawnManager.cancelPawn(customPawnId, {from: borrower});
-        let pawnId = cancelPawnReceipt["logs"][cancelPawnReceipt["logs"].length - 1]["args"]["_pawnId"];
+        let pawnId = cancelPawnReceipt["logs"][cancelPawnReceipt["logs"].length - 1]["args"]["pawnId"];
 
         assert.equal((await pawnManager.getPawnStatus(pawnId)).toNumber(), Status.Canceled);
 
