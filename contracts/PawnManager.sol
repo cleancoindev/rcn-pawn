@@ -57,8 +57,6 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, Ownable {
     }
 
     enum Status { Pending, Ongoing, Canceled, Paid, Defaulted }
-    uint private constant INDEX_ERC721_ADDR = 0;
-    uint private constant INDEX_NFT = 1;
 
     constructor(NanoLoanEngine _nanoLoanEngine, IBundle _bundle, IPoach _poach) public {
         nanoLoanEngine = _nanoLoanEngine;
