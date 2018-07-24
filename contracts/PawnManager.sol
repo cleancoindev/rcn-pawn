@@ -218,8 +218,7 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, Ownable {
     //
     // Implements cosigner
     //
-    uint256 public constant I_PAWN_ID = 0;
-
+    uint256 private constant I_PAWN_ID = 0;
     //this cosign dont have cost
     function cost(address , uint256 , bytes , bytes ) public view returns (uint256) {
         return 0;
