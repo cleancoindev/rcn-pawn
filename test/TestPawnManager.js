@@ -51,7 +51,7 @@ let otherUser;
 // common variables
 const loanDuration = 6 * 30 * 24 * 60 * 60;
 const closeTime = 24 * 60 * 60;
-const expirationRequest = Math.floor(Date.now() / 1000) + 1 * 30 * 24 * 60 * 60;
+const expirationRequest = Helper.now() + (30 * 24 * 60 * 60);// now plus a month
 
 const loanParams = [
     web3.toWei(199),                         // Amount requested
