@@ -352,7 +352,14 @@ contract('TestPawnManager', function(accounts) {
             assert(Helper.isRevertErrorMessage(e), "expected throw but got: " + e);
         }
 
-        let claimPawnReceipt = await pawnManager.claim(rcnEngine.address, customLoanId, "", {from: borrower});
+        await pawnManager.claim(rcnEngine.address, customLoanId, "", {from: borrower});
+
+        try { // try claim a pawn again as borrower
+            await pawnManager.claim(rcnEngine.address, customLoanId, "", {from: borrower});
+            assert(false, "throw was expected in line above.")
+        } catch(e){
+            assert(Helper.isRevertErrorMessage(e), "expected throw but got: " + e);
+        }
 
         assert.equal((await pawnManager.getPawnStatus(customPawnId)).toNumber(), Status.Paid);
 
