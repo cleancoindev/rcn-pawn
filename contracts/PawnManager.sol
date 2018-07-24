@@ -37,12 +37,11 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, Ownable {
     IPoach poach;
 
     event NewPawn(address borrower, uint256 loanId, uint256 packageId, uint256 pawnId);
-
-    event RequestedPawn(uint256 _pawnId, address _borrower, address _engine, uint256 _loanId, uint256 _packageId);
+    event RequestedPawn(uint256 pawnId, address borrower, address engine, uint256 loanId, uint256 packageId);
     event StartedPawn(uint256 pawnId);
-    event CanceledPawn(address _from, uint256 _pawnId);
-    event PaidPawn(address _from, uint256 _pawnId);
-    event DefaultedPawn(uint256 _pawnId);
+    event CanceledPawn(address from, uint256 pawnId);
+    event PaidPawn(address from, uint256 pawnId);
+    event DefaultedPawn(uint256 pawnId);
 
     mapping(uint256 => uint256) pawnByPackageId;
     mapping(address => mapping(uint256 => uint256)) loanToLiability;
