@@ -46,9 +46,8 @@ contract NanoLoanEngine is Engine {
     When the loan is resolved (paid, pardoned or defaulted), the pawn with his tokens can be recovered.
 */
 contract PawnManager is Cosigner, ERC721Base, BytesUtils, Ownable {
-    NanoLoanEngine nanoLoanEngine;
-    IBundle bundle;
-    IPoach poach;
+    IBundle public bundle;
+    IPoach public poach;
 
     event NewPawn(address borrower, uint256 loanId, uint256 packageId, uint256 pawnId);
     event RequestedPawn(uint256 pawnId, address borrower, address engine, uint256 loanId, uint256 packageId);
@@ -72,8 +71,7 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, Ownable {
 
     enum Status { Pending, Ongoing, Canceled, Paid, Defaulted }
 
-    constructor(NanoLoanEngine _nanoLoanEngine, IBundle _bundle, IPoach _poach) public {
-        nanoLoanEngine = _nanoLoanEngine;
+    constructor(IBundle _bundle, IPoach _poach) public {
         bundle = _bundle;
         poach = _poach;
         pawns.length++;
@@ -91,6 +89,7 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, Ownable {
     /**
         @dev Creates a loan using an array of parameters
 
+        @param _engine RCN Engine
         @param _oracle  Oracle of loan
         @param _currency Currency of loan
         @param params 0 - Ammount
@@ -105,8 +104,14 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, Ownable {
         @return Id of the loan
 
     */
-    function createLoan(Oracle _oracle, bytes32 _currency, uint256[6] memory params, string metadata) internal returns (uint256) {
-        return nanoLoanEngine.createLoan(
+    function createLoan(
+        NanoLoanEngine _engine,
+        Oracle _oracle,
+        bytes32 _currency,
+        uint256[6] memory params,
+        string metadata
+    ) internal returns (uint256) {
+        return _engine.createLoan(
             _oracle,
             msg.sender,
             _currency,
@@ -127,6 +132,7 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, Ownable {
             The length of _tokens and _amounts should be equal
              also length of _erc721s and _ids
 
+        @param _engine RCN Engine
         @param _oracle  Oracle of loan
         @param _currency Currency of loan
         @param loanParams   0 - Ammount
@@ -136,9 +142,7 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, Ownable {
                             4 - Cancelable at
                             5 - Expiration of request
         @param metadata Loan metadata
-        @param v Loan signature by the borrower
-        @param r Loan signature by the borrower
-        @param s Loan signature by the borrower
+        @param vrs Loan signature by the borrower
 
         @param _tokens Array of ERC20 contract addresses
         @param _amounts Array of tokens amounts
@@ -149,13 +153,12 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, Ownable {
         @return packageId The id of the package
     */
     function requestPawn(
+        NanoLoanEngine _engine,
         Oracle _oracle,
         bytes32 _currency,
         uint256[6] loanParams,
         string metadata,
-        uint8 v,
-        bytes32 r,
-        bytes32 s,
+        bytes32[3] vrs,
         //ERC20
         Token[] _tokens,
         uint256[] _amounts,
@@ -163,10 +166,10 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, Ownable {
         ERC721[] _erc721s,
         uint256[] _ids
     ) public returns (uint256 pawnId, uint256 packageId) {
-        uint256 loanId = createLoan(_oracle, _currency, loanParams, metadata);
-        require(nanoLoanEngine.registerApprove(nanoLoanEngine.getIdentifier(loanId), v, r, s));
+        uint256 loanId = createLoan(_engine, _oracle, _currency, loanParams, metadata);
+        require(_engine.registerApprove(_engine.getIdentifier(loanId), uint8(vrs[0]), vrs[1], vrs[2]));
 
-        (pawnId, packageId) = requestPawnId(nanoLoanEngine, loanId, _tokens, _amounts, _erc721s, _ids);
+        (pawnId, packageId) = requestPawnId(_engine, loanId, _tokens, _amounts, _erc721s, _ids);
 
         emit NewPawn(msg.sender, loanId, packageId, pawnId);
     }
@@ -177,7 +180,7 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, Ownable {
              The length of _tokens and _amounts should be equal
               also length of _erc721s and _ids
 
-        @param engine RCN Engine
+        @param _engine RCN Engine
         @param loanIdentifier Identifier of the loan asociated with the pawn
 
         @param _tokens Array of ERC20 contract addresses
@@ -189,14 +192,14 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, Ownable {
         @return packageId The id of the package
     */
     function requestPawnWithLoanIdentifier(
-        NanoLoanEngine engine,
+        NanoLoanEngine _engine,
         bytes32 loanIdentifier,
         Token[] _tokens,
         uint256[] _amounts,
         ERC721[] _erc721s,
         uint256[] _ids
     ) public returns (uint256 pawnId, uint256 packageId) {
-        return requestPawnId(engine, engine.identifierToIndex(loanIdentifier), _tokens, _amounts, _erc721s, _ids);
+        return requestPawnId(_engine, _engine.identifierToIndex(loanIdentifier), _tokens, _amounts, _erc721s, _ids);
     }
     /**
         @notice Request a pawn to buy a new loan
@@ -205,7 +208,7 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, Ownable {
              The length of _tokens and _amounts should be equal
               also length of _erc721s and _ids
 
-        @param engine RCN Engine
+        @param _engine RCN Engine
         @param loanId Id of the loan asociated with the pawn
 
         @param _tokens Array of ERC20 contract addresses
@@ -217,7 +220,7 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, Ownable {
         @return packageId The id of the package
     */
     function requestPawnId(
-        Engine engine,
+        Engine _engine,
         uint256 loanId,
         Token[] _tokens,
         uint256[] _amounts,
@@ -225,29 +228,29 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, Ownable {
         uint256[] _ids
     ) public returns (uint256 pawnId, uint256 packageId) {
         // Validate the associated loan
-        address borrower = engine.getBorrower(loanId);
-        require(engine.getStatus(loanId) == Engine.Status.initial);
-        require(msg.sender == borrower || msg.sender == engine.getCreator(loanId));
-        require(engine.isApproved(loanId));
-        require(loanToLiability[engine][loanId] == 0);
+        address borrower = _engine.getBorrower(loanId);
+        require(_engine.getStatus(loanId) == Engine.Status.initial);
+        require(msg.sender == borrower || msg.sender == _engine.getCreator(loanId));
+        require(_engine.isApproved(loanId));
+        require(loanToLiability[_engine][loanId] == 0);
 
         packageId = createPackage(_tokens, _amounts, _erc721s, _ids);
 
         // Create the liability
         pawnId = pawns.push(Pawn({
             owner:     borrower,
-            engine:    engine,
+            engine:    _engine,
             loanId:    loanId,
             packageId: packageId,
             status:    Status.Pending
         })) - 1;
 
-        loanToLiability[engine][loanId] = pawnId;
+        loanToLiability[_engine][loanId] = pawnId;
 
         emit RequestedPawn({
             pawnId:    pawnId,
             borrower:  borrower,
-            engine:    engine,
+            engine:    _engine,
             loanId:    loanId,
             packageId: packageId
         });
@@ -375,7 +378,7 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, Ownable {
     /**
         @notice Defines a custom logic that determines if a loan is defaulted or not.
 
-        @param _engine RCN Engines
+        @param _engine RCN Engine
         @param _index Index of the loan
 
         @return true if the loan is considered defaulted

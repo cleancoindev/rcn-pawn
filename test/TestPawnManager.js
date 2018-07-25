@@ -122,7 +122,7 @@ contract('TestPawnManager', function(accounts) {
         bundle = await Bundle.new();
         poach = await Poach.new();
         rcnEngine = await NanoLoanEngine.new(rcn.address);
-        pawnManager = await PawnManager.new(rcnEngine.address, bundle.address, poach.address);
+        pawnManager = await PawnManager.new(bundle.address, poach.address);
         //
         //create custom loan with a pawn
         //
@@ -151,22 +151,22 @@ contract('TestPawnManager', function(accounts) {
         const approveSignature = await web3.eth.sign(borrower, loanIdentifier).slice(2);
         const r = `0x${approveSignature.slice(0, 64)}`;
         const s = `0x${approveSignature.slice(64, 128)}`;
-        const v = web3.toDecimal(approveSignature.slice(128, 130)) + 27;
+        //const v = web3.toDecimal(approveSignature.slice(128, 130)) + 27;
+        const v = Helper.toBytes32(web3.toHex(web3.toDecimal(approveSignature.slice(128, 130)) + 27));
         // Request a Pawn
         const pawnReceipt = await pawnManager.requestPawn(
-            0x0,
-            0x0,
-            loanParams,   // Configuration of the loan request
-            loanMetadata, // Metadata of the loan
-            v,            // Signature of the loan
-            r,            // Signature of the loan
-            s,            // Signature of the loan
+            rcnEngine.address,  // NanoLoanEngine contract
+            0x0,                // Oracle
+            0x0,                // Currency
+            loanParams,         // Configuration of the loan request
+            loanMetadata,       // Metadata of the loan
+            [v, r, s],          // Signature of the loan
             //ERC20
-            tokens,       // Array of ERC20 addresses
-            amounts,      // Array of ERC20 amounts
+            tokens,             // Array of ERC20 addresses
+            amounts,            // Array of ERC20 amounts
             //ERC721
-            erc721s,      // Array of ERC721 addresses
-            ids,          // Array of ERC721 ids
+            erc721s,            // Array of ERC721 addresses
+            ids,                // Array of ERC721 ids
             {from: borrower}
         );
         customLoanId = pawnReceipt["logs"][pawnReceipt["logs"].length - 1]["args"]["loanId"];
