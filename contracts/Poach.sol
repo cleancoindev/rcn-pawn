@@ -52,6 +52,14 @@ contract Poach is ERC721Base, RpSafeMath {
 
     }
 
+    /**
+        @notice Deposit an amount of token in a pair 
+
+        @param id Index of pair in poaches array
+        @param amount Token amount
+
+        @return true If the operation was executed
+    */
     function deposit(
         uint256 id,
         uint256 amount
@@ -69,6 +77,13 @@ contract Poach is ERC721Base, RpSafeMath {
         return true;
     }
 
+    /**
+        @notice Destroy a pair and return the funds to the owner
+
+        @param id Index of pair in poaches array
+
+        @return true If the operation was executed
+    */
     function destroy(uint256 id) public onlyAuthorized(id) alive(id) returns (bool) {
         Pair storage pair = poaches[id];
 
