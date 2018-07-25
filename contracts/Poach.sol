@@ -15,6 +15,10 @@ contract Poach is ERC721Base, RpSafeMath {
 
     Pair[] public poaches;
 
+    event Created(address owner, uint256 pairId, address erc20, uint256 amount);
+    event Deposit(address sender, uint256 pairId, uint256 amount);
+    event Destroy(address retriever, uint256 pairId, uint256 amount);
+
     constructor() public {
         poaches.length++;
     }
@@ -36,6 +40,7 @@ contract Poach is ERC721Base, RpSafeMath {
         require(token.transferFrom(msg.sender, this, amount));
         id = poaches.length;
         poaches.push(Pair(token, amount, true));
+        emit Created(msg.sender, id, token, amount);
         _generate(id, msg.sender);
     }
 
@@ -46,6 +51,9 @@ contract Poach is ERC721Base, RpSafeMath {
         Pair storage pair = poaches[id];
         require(pair.token.transferFrom(msg.sender, this, amount));
         pair.amount = safeAdd(pair.amount, amount);
+
+        emit Deposit(msg.sender, id, amount);
+
         return true;
     }
 
@@ -53,6 +61,9 @@ contract Poach is ERC721Base, RpSafeMath {
         Pair storage pair = poaches[id];
         require(pair.token.transfer(msg.sender, pair.amount));
         pair.alive = false;
+
+        emit Destroy(msg.sender, id, pair.amount);
+
         return true;
     }
 }

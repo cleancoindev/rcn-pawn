@@ -123,18 +123,20 @@ contract('TestBundle', function(accounts) {
         await rcn.approve(poach.address, web3.toWei(5), {from:user});
         await pepeCoin.approve(poach.address, web3.toWei(6), {from:user});
 
-        await poach.create(rcn.address, web3.toWei(5), {from:user});
-        await poach.create(pepeCoin.address, web3.toWei(6), {from:user});
+        let poachReceipt = await poach.create(rcn.address, web3.toWei(5), {from:user});
+        const poach1Id = poachReceipt["logs"][1]["args"]["pairId"];
+        poachReceipt = await poach.create(pepeCoin.address, web3.toWei(6), {from:user});
+        const poach2Id = poachReceipt["logs"][1]["args"]["pairId"];
         await poach.setApprovalForAll(bundle.address, true, {from:user});
 
-        await bundle.deposit(packageId, poach.address, 0, {from:user});
-        await bundle.deposit(packageId, poach.address, 1, {from:user});
+        await bundle.deposit(packageId, poach.address, poach1Id, {from:user});
+        await bundle.deposit(packageId, poach.address, poach2Id, {from:user});
 
         // ckeck package balance
         assert.equal(await rcn.balanceOf(poach.address), web3.toWei(5), "ckeck package balance in rcn");
         assert.equal(await pepeCoin.balanceOf(poach.address), web3.toWei(6), "ckeck package balance in pepeCoin");
-        assert.equal(await poach.ownerOf(0), bundle.address);
-        assert.equal(await poach.ownerOf(1), bundle.address);
+        assert.equal(await poach.ownerOf(poach1Id), bundle.address);
+        assert.equal(await poach.ownerOf(poach2Id), bundle.address);
         // ckeck user balance
         assert.equal(await rcn.balanceOf(user), prevRcnBal - web3.toWei(5), "ckeck user balance in rcn");
         assert.equal(await pepeCoin.balanceOf(user), prevPepeCoinBal - web3.toWei(6), "ckeck user balance in pepeCoin");
@@ -143,14 +145,14 @@ contract('TestBundle', function(accounts) {
         assert.equal(content[0].length, 2);
         assert.equal(content[0].length, content[1].length);
         assert.equal(content[0][0], poach.address);
-        assert.equal(content[1][0], 0);
+        assert.equal(content[1][0].toNumber(), poach1Id);
         assert.equal(content[0][1], poach.address);
-        assert.equal(content[1][1], 1);
+        assert.equal(content[1][1].toNumber(), poach2Id);
 
         // add a diferent amount of tokens in a registered package
         await rcn.createTokens(user, web3.toWei(4));
         await rcn.approve(poach.address, web3.toWei(4), {from:user});
-        await poach.deposit(0, web3.toWei(4), {from:user});
+        await poach.deposit(poach1Id, web3.toWei(4), {from:user});
 
         assert.equal(await rcn.balanceOf(poach.address), web3.toWei(9), "ckeck bundle contract balance in rcn");
 
@@ -158,9 +160,9 @@ contract('TestBundle', function(accounts) {
         assert.equal(content[0].length, 2);
         assert.equal(content[0].length, content[1].length);
         assert.equal(content[0][0], poach.address);
-        assert.equal(content[1][0], 0);
+        assert.equal(content[1][0].toNumber(), poach1Id);
         assert.equal(content[0][1], poach.address);
-        assert.equal(content[1][1], 1);
+        assert.equal(content[1][1].toNumber(), poach2Id);
     });
 
     it("test: add erc721 to a package", async() => {
@@ -223,20 +225,22 @@ contract('TestBundle', function(accounts) {
         await rcn.approve(poach.address, web3.toWei(5), {from:user});
         await pepeCoin.approve(poach.address, web3.toWei(6), {from:user});
 
-        await poach.create(rcn.address, web3.toWei(5), {from:user});
-        await poach.create(pepeCoin.address, web3.toWei(6), {from:user});
+        let poachReceipt = await poach.create(rcn.address, web3.toWei(5), {from:user});
+        const poach1Id = poachReceipt["logs"][1]["args"]["pairId"];
+        poachReceipt = await poach.create(pepeCoin.address, web3.toWei(6), {from:user});
+        const poach2Id = poachReceipt["logs"][1]["args"]["pairId"];
         await poach.setApprovalForAll(bundle.address, true, {from:user});
 
-        await bundle.deposit(packageId, poach.address, 0, {from:user});
-        await bundle.deposit(packageId, poach.address, 1, {from:user});
+        await bundle.deposit(packageId, poach.address, poach1Id, {from:user});
+        await bundle.deposit(packageId, poach.address, poach2Id, {from:user});
 
         let prevUserBal = await rcn.balanceOf(user);
         let prevUser2Bal = await rcn.balanceOf(user2);
         let prevPoachBal = await rcn.balanceOf(poach.address);
 
         // withdraw RCN
-        await bundle.withdraw(packageId, poach.address, 0, user2, {from:user});
-        await poach.destroy(0, {from:user2});
+        await bundle.withdraw(packageId, poach.address, poach1Id, user2, {from:user});
+        await poach.destroy(poach1Id, {from:user2});
         assert.equal((await rcn.balanceOf(user2)).toString(), prevUser2Bal.plus(web3.toWei(5)).toString(), "check user2 Balance");
         assert.equal((await rcn.balanceOf(user)).toString(), prevUserBal.toString(), "check user Balance");
         assert.equal((await rcn.balanceOf(poach.address)).toString(), prevPoachBal.minus(web3.toWei(5)).toString(), "check bundle contract Balance");
@@ -245,8 +249,8 @@ contract('TestBundle', function(accounts) {
         prevUserBal = await pepeCoin.balanceOf(user);
         prevPoachBal = await pepeCoin.balanceOf(poach.address);
 
-        await bundle.withdraw(packageId, poach.address, 1, user, {from:user});
-        await poach.destroy(1, {from:user});
+        await bundle.withdraw(packageId, poach.address, poach2Id, user, {from:user});
+        await poach.destroy(poach2Id, {from:user});
 
         assert.equal((await pepeCoin.balanceOf(user)).toString(), prevUserBal.plus(web3.toWei(6)).toString(), "check user2 Balance");
         assert.equal((await pepeCoin.balanceOf(poach.address)).toString(), prevPoachBal.minus(web3.toWei(6)).toString(), "check bundle contract Balance");
@@ -256,7 +260,7 @@ contract('TestBundle', function(accounts) {
         assert.equal(content[1].length, 0);
 
         try { // try to withdraw a deleted ERC20 id
-          await bundle.withdraw(packageId, poach.address, 1, user, {from:user});
+          await bundle.withdraw(packageId, poach.address, poach2Id, user, {from:user});
           assert(false, "throw was expected in line above.")
         } catch(e){
           assert(Helper.isRevertErrorMessage(e), "expected throw but got: " + e);
