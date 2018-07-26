@@ -53,7 +53,7 @@ contract Poach is ERC721Base, RpSafeMath {
     }
 
     /**
-        @notice Deposit an amount of token in a pair 
+        @notice Deposit an amount of token in a pair
 
         @param id Index of pair in poaches array
         @param amount Token amount
@@ -90,7 +90,7 @@ contract Poach is ERC721Base, RpSafeMath {
         if (address(pair.token) != ETH)
             require(pair.token.transfer(msg.sender, pair.amount));
         else
-            msg.sender.transfer(pair.amount);
+            tx.origin.transfer(pair.amount);
 
         pair.alive = false;
 
