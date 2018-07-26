@@ -14,6 +14,8 @@ const BigNumber = require('bignumber.js');
 const precision = new BigNumber(10**18);
 let Status = Object.freeze({"Pending":0, "Ongoing":1, "Canceled":2, "Paid":3, "Defaulted":4});
 
+let ethAddress = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+let ethAmount = new BigNumber(50).times(precision);
 // Contracts
 let bundle;
 let poach;
@@ -126,8 +128,8 @@ contract('TestPawnManager', function(accounts) {
         //
         //create custom loan with a pawn
         //
-        tokens  = [pepeCoin.address];
-        amounts = [web3.toWei(1)];
+        tokens  = [pepeCoin.address, ethAddress];
+        amounts = [web3.toWei(1), ethAmount.toString()];
         erc721s = [pokemons.address];
         ids     = [pikachu];
         // approves
@@ -167,7 +169,7 @@ contract('TestPawnManager', function(accounts) {
             //ERC721
             erc721s,      // Array of ERC721 addresses
             ids,          // Array of ERC721 ids
-            {from: borrower}
+            {from: borrower, value: ethAmount.toString()}
         );
         customLoanId = pawnReceipt["logs"][pawnReceipt["logs"].length - 1]["args"]["loanId"];
         customPawnId = pawnReceipt["logs"][pawnReceipt["logs"].length - 1]["args"]["pawnId"];
@@ -177,8 +179,10 @@ contract('TestPawnManager', function(accounts) {
         let packageId = await pawnManager.getPawnPackageId(customPawnId);
         let pawnPackage = await bundle.content(packageId);
         let poachId = pawnPackage[1][0];
+        let poachEthId = pawnPackage[1][1];
 
         assert.equal(await poach.ownerOf(poachId), bundle.address);
+        assert.equal(await poach.ownerOf(poachEthId), bundle.address);
         assert.equal(await bundle.ownerOf(packageId), pawnManager.address);
         assert.equal((await pawnManager.getLiability(rcnEngine.address, customLoanId)).toNumber(), customPawnId.toNumber());
         assert.equal(await pawnManager.ownerOf(customPawnId), 0x0);
@@ -189,13 +193,19 @@ contract('TestPawnManager', function(accounts) {
         assert.equal((await pawnManager.getPawnStatus(customPawnId)).toNumber(), Status.Pending);
 
         assert.equal(pawnPackage[0][0], poach.address);
+        assert.equal(pawnPackage[0][1], poach.address);
+
         let pair = await poach.getPair(poachId);
         assert.equal(pair[0], tokens[0]);
         assert.equal(pair[1], amounts[0]);
         assert.equal(pair[2], true);
+        let pairEth = await poach.getPair(poachEthId);
+        assert.equal(pairEth[0], tokens[1]);
+        assert.equal(pairEth[1], amounts[1]);
+        assert.equal(pairEth[2], true);
 
-        assert.equal(pawnPackage[0][1], pokemons.address);
-        assert.equal(pawnPackage[1][1], ids[0]);
+        assert.equal(pawnPackage[0][2], pokemons.address);
+        assert.equal(pawnPackage[1][2], ids[0]);
 
         try { // Try to claim a pawn without being borrowed from lender
             await pawnManager.claim(rcnEngine.address, customLoanId, "", {from: lender});
@@ -226,10 +236,17 @@ contract('TestPawnManager', function(accounts) {
 
         pawnPackage = await bundle.content(packageId);
         assert.equal(pawnPackage[0][0], poach.address);
-        assert.equal(pawnPackage[0][1], pokemons.address);
-        assert.equal(pawnPackage[1][1], ids[0]);
+        assert.equal(pawnPackage[1][0], poachId.toString());
+        assert.equal(pawnPackage[0][1], poach.address);
+        assert.equal(pawnPackage[1][1], poachEthId.toString());
+        assert.equal(pawnPackage[0][2], pokemons.address);
+        assert.equal(pawnPackage[1][2], ids[0]);
 
         await bundle.withdrawAll(packageId, borrower, {from: borrower});
+
+        assert.equal(web3.eth.getBalance(bundle.address), 0);
+        assert.equal(web3.eth.getBalance(pawnManager.address), 0);
+        assert.equal(web3.eth.getBalance(poach.address).toString(), ethAmount.toString());
 
         let prevBal = await pepeCoin.balanceOf(borrower);
         await poach.destroy(pawnPackage[1][0], {from: borrower});
@@ -237,6 +254,11 @@ contract('TestPawnManager', function(accounts) {
         assert.equal(pair[2], false);
         let bal = await pepeCoin.balanceOf(borrower);
         assert.equal(bal.toString(), prevBal.plus(amounts[0]).toString());
+
+        await poach.destroy(pawnPackage[1][1], {from: borrower});
+        pairEth = await poach.getPair(pawnPackage[1][1]);
+        assert.equal(pairEth[2], false);
+        assert.equal(web3.eth.getBalance(poach.address).toString(), 0);
 
         assert.equal(await pokemons.ownerOf(pikachu), borrower);
     });
@@ -304,6 +326,11 @@ contract('TestPawnManager', function(accounts) {
         let bal = await pepeCoin.balanceOf(borrowerHelper);
         assert.equal(bal.toString(), prevBal.plus(amounts[0]).toString());
 
+        await poach.destroy(pawnPackage[1][1], {from: borrowerHelper});
+        let pairEth = await poach.getPair(pawnPackage[1][1]);
+        assert.equal(pairEth[2], false);
+        assert.equal(web3.eth.getBalance(poach.address).toString(), 0);
+
         assert.equal(await pokemons.ownerOf(pikachu), borrowerHelper);
     });
 
@@ -367,8 +394,9 @@ contract('TestPawnManager', function(accounts) {
 
         pawnPackage = await bundle.content(packageId);
         assert.equal(pawnPackage[0][0], poach.address);
-        assert.equal(pawnPackage[0][1], pokemons.address);
-        assert.equal(pawnPackage[1][1], ids[0]);
+        assert.equal(pawnPackage[0][1], poach.address);
+        assert.equal(pawnPackage[0][2], pokemons.address);
+        assert.equal(pawnPackage[1][2], ids[0]);
 
         try { // try withdraw all tokens of a defaulted pawn as lender
             await bundle.withdrawAll(packageId, lender, {from: lender});
@@ -385,6 +413,11 @@ contract('TestPawnManager', function(accounts) {
         assert.equal(pair[2], false);
         let bal = await pepeCoin.balanceOf(borrower);
         assert.equal(bal.toString(), prevBal.plus(amounts[0]).toString());
+
+        await poach.destroy(pawnPackage[1][1], {from: borrower});
+        let pairEth = await poach.getPair(pawnPackage[1][1]);
+        assert.equal(pairEth[2], false);
+        assert.equal(web3.eth.getBalance(poach.address).toString(), 0);
 
         assert.equal(await pokemons.ownerOf(pikachu), borrower);
     });
@@ -411,8 +444,9 @@ contract('TestPawnManager', function(accounts) {
 
         pawnPackage = await bundle.content(packageId);
         assert.equal(pawnPackage[0][0], poach.address);
-        assert.equal(pawnPackage[0][1], pokemons.address);
-        assert.equal(pawnPackage[1][1], ids[0]);
+        assert.equal(pawnPackage[0][1], poach.address);
+        assert.equal(pawnPackage[0][2], pokemons.address);
+        assert.equal(pawnPackage[1][2], ids[0]);
 
         try { // try withdraw all tokens of a defaulted pawn as borrower
             await bundle.withdrawAll(packageId, borrower, {from: borrower});
@@ -429,6 +463,12 @@ contract('TestPawnManager', function(accounts) {
         assert.equal(pair[2], false);
         let bal = await pepeCoin.balanceOf(lender);
         assert.equal(bal.toString(), prevBal.plus(amounts[0]).toString());
+
+        await poach.destroy(pawnPackage[1][1], {from: lender});
+        let pairEth = await poach.getPair(pawnPackage[1][1]);
+        assert.equal(pairEth[2], false);
+        assert.equal(web3.eth.getBalance(poach.address).toString(), 0);
+
         assert.equal(await pokemons.ownerOf(pikachu), lender);
     });
 });
