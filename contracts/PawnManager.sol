@@ -6,6 +6,7 @@ import "./rcn/interfaces/Engine.sol";
 import "./rcn/interfaces/Token.sol";
 import "./interfaces/ERC721.sol";
 
+import "./rcn/utils/RpSafeMath.sol";
 import "./rcn/utils/BytesUtils.sol";
 import "./rcn/utils/Ownable.sol";
 
@@ -19,7 +20,7 @@ contract IBundle is ERC721Base {
 }
 
 contract IPoach is ERC721Base {
-    function create(Token token, uint256 amount) public returns (uint256 id);
+    function create(Token token, uint256 amount) public payable returns (uint256 id);
 }
 
 contract NanoLoanEngine is Engine {
@@ -39,7 +40,8 @@ contract NanoLoanEngine is Engine {
 
     When the loan is resolved (paid, pardoned or defaulted), the pawn with his tokens can be recovered.
 */
-contract PawnManager is Cosigner, ERC721Base, BytesUtils, Ownable {
+contract PawnManager is Cosigner, ERC721Base, BytesUtils, RpSafeMath, Ownable {
+    address constant internal ETH = 0x00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee;
     NanoLoanEngine nanoLoanEngine;
     IBundle bundle;
     IPoach poach;
@@ -155,7 +157,7 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, Ownable {
         //ERC721
         ERC721[] _erc721s,
         uint256[] _ids
-    ) public returns (uint256 pawnId, uint256 packageId) {
+    ) public payable returns (uint256 pawnId, uint256 packageId) {
         uint256 loanId = createLoan(_oracle, _currency, loanParams, metadata);
         require(nanoLoanEngine.registerApprove(nanoLoanEngine.getIdentifier(loanId), v, r, s));
 
@@ -188,7 +190,7 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, Ownable {
         uint256[] _amounts,
         ERC721[] _erc721s,
         uint256[] _ids
-    ) public returns (uint256 pawnId, uint256 packageId) {
+    ) public payable returns (uint256 pawnId, uint256 packageId) {
         return requestPawnId(engine, engine.identifierToIndex(loanIdentifier), _tokens, _amounts, _erc721s, _ids);
     }
     /**
@@ -216,7 +218,7 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, Ownable {
         uint256[] _amounts,
         ERC721[] _erc721s,
         uint256[] _ids
-    ) public returns (uint256 pawnId, uint256 packageId) {
+    ) public payable returns (uint256 pawnId, uint256 packageId) {
         // Validate the associated loan
         address borrower = engine.getBorrower(loanId);
         require(engine.getStatus(loanId) == Engine.Status.initial);
@@ -249,6 +251,7 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, Ownable {
         @notice Create a package
         @dev The length of _tokens and _amounts should be equal also
               length of _erc721s and _ids
+              The sum of the all amounts of ether should be send
 
         @param _tokens Array of ERC20 contract addresses
         @param _amounts Array of tokens amounts
@@ -270,13 +273,22 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, Ownable {
         packageId = bundle.create();
         uint256 i = 0;
         uint256 poachId;
+        uint256 totEth;
+
         for(; i < tokensLength; i++){
-            require(_tokens[i].transferFrom(msg.sender, this, _amounts[i]));
-            require(_tokens[i].approve(poach, _amounts[i]));
-            poachId = poach.create(_tokens[i], _amounts[i]);
+            if (address(_tokens[i]) != ETH) {
+                require(_tokens[i].transferFrom(msg.sender, this, _amounts[i]));
+                require(_tokens[i].approve(poach, _amounts[i]));
+                poachId = poach.create(_tokens[i], _amounts[i]);
+            } else {
+                poachId = poach.create.value(_amounts[i])(_tokens[i], _amounts[i]);
+                totEth = safeAdd(totEth, _amounts[i]);
+            }
+
             require(poach.approve(bundle, poachId));
             bundle.deposit(packageId, ERC721(poach), poachId);
         }
+        require(totEth == msg.value);
 
         for(i = 0; i < erc721sLength; i++){
             require(_erc721s[i].transferFrom(msg.sender, this, _ids[i]));
