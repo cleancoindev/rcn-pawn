@@ -386,6 +386,14 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, RpSafeMath, Ownable {
         }
         return true;
     }
+
+    /**
+        @dev Use to claim eth to the poach
+    */
+    function deposit() external payable {
+        require(msg.sender == address(poach));
+    }
+    
     //
     // Implements cosigner
     //
@@ -551,10 +559,6 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, RpSafeMath, Ownable {
         delete pawnByPackageId[pawn.packageId];
 
         return true;
-    }
-
-    function deposit() external payable {
-        require(msg.sender == address(poach));
     }
 
     //
