@@ -13,13 +13,18 @@ import "./rcn/utils/Ownable.sol";
 import "./ERC721Base.sol";
 
 contract IBundle is ERC721Base {
+    function content(uint256 id) external view returns (address[] tokens, uint256[] ids);
     function create() public returns (uint256 id);
     function depositBatch(uint256 _packageId, ERC721[] tokens, uint256[] ids) external returns (bool);
     function depositTokenBatch(uint256 _packageId, ERC721 token, uint256[] ids) external returns (bool);
     function deposit(uint256 _packageId, ERC721 token, uint256 tokenId) external returns (bool);
+    function withdraw(uint256 packageId, ERC721 token, uint256 tokenId, address to) public returns (bool);
 }
 
 contract IPoach is ERC721Base {
+    function getPair(uint poachId) public view returns(address, uint, bool);
+    function create(Token token, uint256 amount) public payable returns (uint256 id);
+    function destroy(uint256 id) public returns (bool);
     function create(Token token, uint256 amount) public payable returns (uint256 id);
 }
 
@@ -30,6 +35,10 @@ contract NanoLoanEngine is Engine {
     function getAmount(uint index) public view returns (uint256);
     function getIdentifier(uint index) public view returns (bytes32);
     function identifierToIndex(bytes32 signature) public view returns (uint256);
+}
+
+interface IDeposit {
+    function deposit() external payable;
 }
 
 /**
@@ -319,6 +328,65 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, RpSafeMath, Ownable {
         emit CanceledPawn(msg.sender, _pawnId);
         return true;
     }
+    /**
+        @notice Cancels an existing pawn and withdraw all tokens
+        @dev The pawn status should be pending
+
+        @param _pawnId Id of the pawn
+
+        @return true If the operation was executed
+    */
+    function cancelWithdraw(uint256 _pawnId) external returns (bool) {
+        Pawn storage pawn = pawns[_pawnId];
+
+        // Only the owner of the pawn and if the pawn is pending
+        require(msg.sender == pawn.owner, "Only the owner can cancel the pawn");
+        require(pawn.status == Status.Pending, "The pawn is not pending");
+
+        pawn.status = Status.Canceled;
+
+        require(_withdrawAll(pawn.packageId, msg.sender));
+
+        emit CanceledPawn(msg.sender, _pawnId);
+        return true;
+    }
+
+    /**
+        @notice Transfer all the ERC721 and ERC20 of an package back to the beneficiary
+
+        @param _packageId Id of the pawn
+        @param _beneficiary Beneficiary of tokens
+
+        @return true If the operation was executed
+    */
+    function _withdrawAll(uint256 _packageId, address _beneficiary) internal returns(bool){
+        address[] memory tokens;
+        uint256[] memory ids;
+        (tokens, ids) = bundle.content(_packageId);
+        uint256 tokensLength = tokens.length;
+        // for ERC20 tokens
+        address addr;
+        uint256 amount;
+
+        for (uint i = 0; i < tokensLength; i++) {
+            if (tokens[i] != address(poach)){
+                // for a ERC721 token
+                bundle.withdraw(_packageId, ERC721(tokens[i]), ids[i], _beneficiary);
+            } else { // for a ERC20 token
+                bundle.withdraw(_packageId, ERC721(tokens[i]), ids[i], address(this));
+                (addr, amount,) = poach.getPair(ids[i]);
+                require(poach.destroy(ids[i]), "Fail destroy");
+                if (addr != ETH)
+                    require(Token(addr).transfer(_beneficiary, amount));
+                else
+                    if (_isContract(msg.sender))
+                        IDeposit(_beneficiary).deposit.value(amount)();
+                    else
+                        _beneficiary.transfer(amount);
+            }
+        }
+        return true;
+    }
     //
     // Implements cosigner
     //
@@ -388,8 +456,9 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, RpSafeMath, Ownable {
     function isDefaulted(Engine _engine, uint256 _index) public view returns (bool) {
         return _engine.getStatus(_index) == Engine.Status.lent && _engine.getDueTime(_index) <= now;
     }
+
     /**
-        @notice Claims the pawn when the loan status is resolved and transfers the ownership of the parcel to which corresponds.
+        @notice Claims the pawn when the loan status is resolved and transfers the ownership of the package to which corresponds.
 
         @dev Deletes the pawn ERC721
 
@@ -410,8 +479,9 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, RpSafeMath, Ownable {
             require(_isAuthorized(msg.sender, pawnId), "Sender not authorized");
 
             pawn.status = Status.Paid;
-            // Transfer the package to the borrower
+
             bundle.safeTransferFrom(this, msg.sender, pawn.packageId);
+
             emit PaidPawn(msg.sender, pawnId);
         } else {
             if (isDefaulted(pawn.engine, _loanId)) {
@@ -434,5 +504,67 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, RpSafeMath, Ownable {
         delete pawnByPackageId[pawn.packageId];
 
         return true;
+    }
+
+    /**
+        @notice Claims the pawn when the loan status is resolved and transfer all tokens to which corresponds.
+
+        @dev Deletes the pawn ERC721
+
+        @param _engine RCN Engine
+        @param _loanId Loan ID
+
+        @return true If the claim succeded
+    */
+    function claimWithdraw(address _engine, uint256 _loanId) public returns (bool) {
+        uint256 pawnId = loanToLiability[_engine][_loanId];
+        Pawn storage pawn = pawns[pawnId];
+        // Validate that the pawn wasn't claimed
+        require(pawn.status == Status.Ongoing, "Pawn not ongoing");
+        require(pawn.loanId == _loanId, "Pawn don't match loan id");
+
+        if (pawn.engine.getStatus(_loanId) == Engine.Status.paid || pawn.engine.getStatus(_loanId) == Engine.Status.destroyed) {
+            // The pawn is paid
+            require(_isAuthorized(msg.sender, pawnId), "Sender not authorized");
+
+            pawn.status = Status.Paid;
+
+            require(_withdrawAll(pawn.packageId, msg.sender));
+            emit PaidPawn(msg.sender, pawnId);
+        } else {
+            if (isDefaulted(pawn.engine, _loanId)) {
+                // The pawn is defaulted
+                require(msg.sender == pawn.engine.ownerOf(_loanId), "Sender not lender");
+
+                pawn.status = Status.Defaulted;
+                // Transfer all tokens to the lender
+                require(_withdrawAll(pawn.packageId, msg.sender));
+                emit DefaultedPawn(pawnId);
+            } else {
+                revert("Pawn not defaulted/paid");
+            }
+        }
+
+        // ERC721 Delete asset
+        _destroy(pawnId);
+
+        // Delete pawn id registry
+        delete pawnByPackageId[pawn.packageId];
+
+        return true;
+    }
+
+    function deposit() external payable {
+        require(msg.sender == address(poach));
+    }
+
+    //
+    // Utilities
+    //
+
+    function _isContract(address addr) internal view returns (bool) {
+        uint size;
+        assembly { size := extcodesize(addr) }
+        return size > 0;
     }
 }
