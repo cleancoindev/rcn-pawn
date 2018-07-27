@@ -39,6 +39,14 @@ contract Poach is ERC721Base, RpSafeMath {
         return (poach.token, poach.amount, poach.alive);
     }
 
+    /**
+        @notice Create a pair and push into the poaches array
+
+        @param token Token address (ERC20)
+        @param amount Token amount
+
+        @return id Index of pair in the poaches array
+    */
     function create(
         Token token,
         uint256 amount
@@ -52,11 +60,12 @@ contract Poach is ERC721Base, RpSafeMath {
         poaches.push(Pair(token, amount, true));
         emit Created(msg.sender, id, token, amount);
         _generate(id, msg.sender);
-
     }
 
     /**
         @notice Deposit an amount of token in a pair
+
+        @dev If the currency its ether and the destiny its a contract, execute the payable deposit()
 
         @param id Index of pair in poaches array
         @param amount Token amount

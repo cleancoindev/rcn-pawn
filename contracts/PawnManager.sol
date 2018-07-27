@@ -353,6 +353,8 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, RpSafeMath, Ownable {
     /**
         @notice Transfer all the ERC721 and ERC20 of an package back to the beneficiary
 
+        @dev If the currency its ether and the destiny its a contract, execute the payable deposit()
+
         @param _packageId Id of the pawn
         @param _beneficiary Beneficiary of tokens
 

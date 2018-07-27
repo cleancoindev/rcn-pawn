@@ -39,6 +39,9 @@ contract Bundle is ERC721Base, BytesUtils, RpSafeMath {
         return _isAuthorized(msg.sender, packageId);
     }
 
+    /**
+        @notice Get the content of a package
+    */
     function content(uint256 id) external view returns (address[] tokens, uint256[] ids) {
         Package memory package = packages[id];
         tokens = package.tokens;
@@ -56,6 +59,15 @@ contract Bundle is ERC721Base, BytesUtils, RpSafeMath {
         _generate(id, msg.sender);
     }
 
+    /**
+        @notice Deposit a non fungible token on a package
+
+        @param _packageId Index of package in packages array
+        @param token Token address (ERC721)
+        @param tokenId Token identifier
+
+        @return true If the operation was executed
+    */
     function deposit(
         uint256 _packageId,
         ERC721 token,
@@ -66,6 +78,17 @@ contract Bundle is ERC721Base, BytesUtils, RpSafeMath {
         return _deposit(packageId, token, tokenId);
     }
 
+    /**
+        @notice Deposit a batch of non fungible tokens on a package
+
+        @dev The length of tokens and ids should be equal
+
+        @param _packageId Index of package in packages array
+        @param tokens Token addresses (ERC721) array
+        @param ids Token identifiers array
+
+        @return true If the operation was executed
+    */
     function depositBatch(
         uint256 _packageId,
         ERC721[] tokens,
@@ -82,6 +105,16 @@ contract Bundle is ERC721Base, BytesUtils, RpSafeMath {
         return true;
     }
 
+    /**
+        @notice Withdraw a non fungible token from a packag
+
+        @param packageId Index of package in packages array
+        @param token Token address (ERC721)
+        @param tokenId Token identifier
+        @param to address beneficiary
+
+        @return true If the operation was executed
+    */
     function withdraw(
         uint256 packageId,
         ERC721 token,
@@ -91,6 +124,18 @@ contract Bundle is ERC721Base, BytesUtils, RpSafeMath {
         return _withdraw(packageId, token, tokenId, to);
     }
 
+    /**
+        @notice Withdraw a batch of non fungible tokens from a package
+
+        @dev The length of tokens and ids should be equal
+
+        @param packageId Index of package in packages array
+        @param tokens Token addresses (ERC721) array
+        @param ids Token identifiers array
+        @param to address beneficiary
+
+        @return true If the operation was executed
+    */
     function withdrawBatch(
         uint256 packageId,
         ERC721[] tokens,
@@ -104,6 +149,14 @@ contract Bundle is ERC721Base, BytesUtils, RpSafeMath {
         return true;
     }
 
+    /**
+        @notice Withdraw all non fungible tokens from a package
+
+        @param packageId Index of package in packages array
+        @param to address beneficiary
+
+        @return true If the operation was executed
+    */
     function withdrawAll(
         uint256 packageId,
         address to
@@ -117,6 +170,10 @@ contract Bundle is ERC721Base, BytesUtils, RpSafeMath {
 
         return true;
     }
+
+    //
+    // Internal functions
+    //
 
     function _deposit(
         uint256 packageId,
