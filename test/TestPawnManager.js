@@ -299,7 +299,7 @@ contract('TestPawnManager', function(accounts) {
         assert.equal(web3.eth.getBalance(pawnManager.address).toString(), 0);
         assert.equal(web3.eth.getBalance(bundle.address).toString(), 0);
         assert.equal(web3.eth.getBalance(poach.address).toString(), 0);
-
+      
         assert.equal(await pokemons.ownerOf(pikachu), borrower);
     });
 

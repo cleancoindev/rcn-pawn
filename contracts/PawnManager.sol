@@ -25,6 +25,7 @@ contract IPoach is ERC721Base {
     function getPair(uint poachId) public view returns(address, uint, bool);
     function create(Token token, uint256 amount) public payable returns (uint256 id);
     function destroy(uint256 id) public returns (bool);
+    function create(Token token, uint256 amount) public payable returns (uint256 id);
 }
 
 contract NanoLoanEngine is Engine {
