@@ -221,13 +221,13 @@ contract('TestPawnManager', function(accounts) {
         }
 
         try { // Try to cancel a pawn without be the owner
-            await pawnManager.cancelPawn(customPawnId, lender, false, {from: lender});
+            await pawnManager.cancelPawn(customPawnId, lender, true, {from: lender});
             assert(false, "throw was expected in line above.")
         } catch(e){
             assert(Helper.isRevertErrorMessage(e), "expected throw but got: " + e);
         }
 
-        const cancelPawnReceipt = await pawnManager.cancelPawn(customPawnId, borrower, false, {from: borrower});
+        const cancelPawnReceipt = await pawnManager.cancelPawn(customPawnId, borrower, true, {from: borrower});
         let pawnId = cancelPawnReceipt["logs"][cancelPawnReceipt["logs"].length - 1]["args"]["pawnId"];
 
         assert.equal((await pawnManager.getPawnStatus(pawnId)).toNumber(), Status.Canceled);
@@ -265,7 +265,7 @@ contract('TestPawnManager', function(accounts) {
 
     it("test: create a pawn and cancel and withdraw", async() => {
         try { // Try to cancelPawn a pawn without be the owner
-            await pawnManager.cancelPawn(customPawnId, lender, true, {from: lender});
+            await pawnManager.cancelPawn(customPawnId, lender, false, {from: lender});
             assert(false, "throw was expected in line above.")
         } catch(e){
             assert(Helper.isRevertErrorMessage(e), "expected throw but got: " + e);
@@ -275,7 +275,7 @@ contract('TestPawnManager', function(accounts) {
 
         assert.equal(web3.eth.getBalance(poach.address).toString(), ethAmount.toString());
         let prevBal = await pepeCoin.balanceOf(borrower);
-        const cancelPawnReceipt = await pawnManager.cancelPawn(customPawnId, borrower, true, {from: borrower});
+        const cancelPawnReceipt = await pawnManager.cancelPawn(customPawnId, borrower, false, {from: borrower});
         try { // try withdraw all tokens
             await bundle.withdrawAll(packageId, borrower, {from: borrower});
             assert(false, "throw was expected in line above.")

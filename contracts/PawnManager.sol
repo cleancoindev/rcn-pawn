@@ -306,11 +306,11 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, RpSafeMath, Ownable {
 
         @param _pawnId Id of the pawn
         @param _to The new owner
-        @param _asToken If true transfer all tokens, if false only transfer the package
+        @param _asBundle If true only transfer the package, if false transfer all tokens
 
         @return true If the operation was executed
     */
-    function cancelPawn(uint256 _pawnId, address _to, bool _asToken) public returns (bool) {
+    function cancelPawn(uint256 _pawnId, address _to, bool _asBundle) public returns (bool) {
         Pawn storage pawn = pawns[_pawnId];
 
         // Only the owner of the pawn and if the pawn is pending
@@ -319,58 +319,16 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, RpSafeMath, Ownable {
 
         pawn.status = Status.Canceled;
 
-        if (_asToken) {
-            // Transfer all tokens to the _to
-            require(_withdrawAll(pawn.packageId, _to));
-        } else {
-            // Transfer the package back to the _to
-            require(bundle.safeTransferFrom(this, _to, pawn.packageId));
-        }
+        _transferAsset(pawn.packageId, _to, _asBundle);
 
         emit CanceledPawn(msg.sender, _to, _pawnId);
         return true;
     }
 
     /**
-        @notice Transfer all the ERC721 and ERC20 of an package back to the beneficiary
-
-        @dev If the currency its ether and the destiny its a contract, execute the payable deposit()
-
-        @param _packageId Id of the pawn
-        @param _beneficiary Beneficiary of tokens
-
-        @return true If the operation was executed
-    */
-    function _withdrawAll(uint256 _packageId, address _beneficiary) internal returns(bool){
-        address[] memory tokens;
-        uint256[] memory ids;
-        (tokens, ids) = bundle.content(_packageId);
-        uint256 tokensLength = tokens.length;
-        // for ERC20 tokens
-        address addr;
-        uint256 amount;
-
-        for (uint i = 0; i < tokensLength; i++) {
-            if (tokens[i] != address(poach)){
-                // for a ERC721 token
-                bundle.withdraw(_packageId, ERC721(tokens[i]), ids[i], _beneficiary);
-            } else { // for a ERC20 token
-                bundle.withdraw(_packageId, ERC721(tokens[i]), ids[i], address(this));
-                (addr, amount,) = poach.getPair(ids[i]);
-                require(poach.destroy(ids[i]), "Fail destroy");
-                if (addr != ETH)
-                    require(Token(addr).transfer(_beneficiary, amount));
-                else
-                    _beneficiary.transfer(amount);
-            }
-        }
-        return true;
-    }
-
-    /**
         @dev Use to claim eth to the poach
     */
-    function deposit() external payable {
+    function () external payable {
         require(msg.sender == address(poach));
     }
 
@@ -455,6 +413,35 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, RpSafeMath, Ownable {
         @return true If the claim succeded
     */
     function claim(address _engine, uint256 _loanId, bytes ) public returns (bool) {
+        return _claim(_engine, _loanId, true);
+    }
+
+    /**
+        @notice Claims the pawn when the loan status is resolved and transfer all tokens to which corresponds.
+
+        @dev Deletes the pawn ERC721
+
+        @param _engine RCN Engine
+        @param _loanId Loan ID
+
+        @return true If the claim succeded
+    */
+    function claimWithdraw(address _engine, uint256 _loanId) public returns (bool) {
+        return _claim(_engine, _loanId, false);
+    }
+
+    /**
+        @notice Claims the pawn when the loan status is resolved and transfer all tokens to which corresponds.
+
+        @dev Deletes the pawn ERC721
+
+        @param _engine RCN Engine
+        @param _loanId Loan ID
+        @param _asBundle If true only transfer the package, if false transfer all tokens
+
+        @return true If the claim succeded
+    */
+    function _claim(address _engine, uint256 _loanId, bool _asBundle) internal returns(bool){
         uint256 pawnId = loanToLiability[_engine][_loanId];
         Pawn storage pawn = pawns[pawnId];
         // Validate that the pawn wasn't claimed
@@ -467,7 +454,7 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, RpSafeMath, Ownable {
 
             pawn.status = Status.Paid;
 
-            bundle.safeTransferFrom(this, msg.sender, pawn.packageId);
+            _transferAsset(pawn.packageId, msg.sender, _asBundle);
 
             emit PaidPawn(msg.sender, pawnId);
         } else {
@@ -476,8 +463,9 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, RpSafeMath, Ownable {
                 require(msg.sender == pawn.engine.ownerOf(_loanId), "Sender not lender");
 
                 pawn.status = Status.Defaulted;
-                // Transfer the package to the lender
-                bundle.safeTransferFrom(this, msg.sender, pawn.packageId);
+
+                _transferAsset(pawn.packageId, msg.sender, _asBundle);
+
                 emit DefaultedPawn(pawnId);
             } else {
                 revert("Pawn not defaulted/paid");
@@ -493,51 +481,51 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, RpSafeMath, Ownable {
         return true;
     }
 
-    /**
-        @notice Claims the pawn when the loan status is resolved and transfer all tokens to which corresponds.
-
-        @dev Deletes the pawn ERC721
-
-        @param _engine RCN Engine
-        @param _loanId Loan ID
-
-        @return true If the claim succeded
-    */
-    function claimWithdraw(address _engine, uint256 _loanId) public returns (bool) {
-        uint256 pawnId = loanToLiability[_engine][_loanId];
-        Pawn storage pawn = pawns[pawnId];
-        // Validate that the pawn wasn't claimed
-        require(pawn.status == Status.Ongoing, "Pawn not ongoing");
-        require(pawn.loanId == _loanId, "Pawn don't match loan id");
-
-        if (pawn.engine.getStatus(_loanId) == Engine.Status.paid || pawn.engine.getStatus(_loanId) == Engine.Status.destroyed) {
-            // The pawn is paid
-            require(_isAuthorized(msg.sender, pawnId), "Sender not authorized");
-
-            pawn.status = Status.Paid;
-
-            require(_withdrawAll(pawn.packageId, msg.sender));
-            emit PaidPawn(msg.sender, pawnId);
+    function _transferAsset(uint _packageId, address _to, bool _asBundle) internal returns(bool){
+        if (_asBundle) {
+            // Transfer the package back to the _to
+            require(bundle.safeTransferFrom(this, _to, _packageId));
         } else {
-            if (isDefaulted(pawn.engine, _loanId)) {
-                // The pawn is defaulted
-                require(msg.sender == pawn.engine.ownerOf(_loanId), "Sender not lender");
-
-                pawn.status = Status.Defaulted;
-                // Transfer all tokens to the lender
-                require(_withdrawAll(pawn.packageId, msg.sender));
-                emit DefaultedPawn(pawnId);
-            } else {
-                revert("Pawn not defaulted/paid");
-            }
+            // Transfer all tokens to the _to
+            require(_withdrawAll(_packageId, _to));
         }
 
-        // ERC721 Delete asset
-        _destroy(pawnId);
+        return true;
+    }
 
-        // Delete pawn id registry
-        delete pawnByPackageId[pawn.packageId];
+    /**
+        @notice Transfer all the ERC721 and ERC20 of an package back to the beneficiary
 
+        @dev If the currency its ether and the destiny its a contract, execute the payable deposit()
+
+        @param _packageId Id of the pawn
+        @param _beneficiary Beneficiary of tokens
+
+        @return true If the operation was executed
+    */
+    function _withdrawAll(uint256 _packageId, address _beneficiary) internal returns(bool){
+        address[] memory tokens;
+        uint256[] memory ids;
+        (tokens, ids) = bundle.content(_packageId);
+        uint256 tokensLength = tokens.length;
+        // for ERC20 tokens
+        address addr;
+        uint256 amount;
+
+        for (uint i = 0; i < tokensLength; i++) {
+            if (tokens[i] != address(poach)){
+                // for a ERC721 token
+                bundle.withdraw(_packageId, ERC721(tokens[i]), ids[i], _beneficiary);
+            } else { // for a ERC20 token
+                bundle.withdraw(_packageId, ERC721(tokens[i]), ids[i], address(this));
+                (addr, amount,) = poach.getPair(ids[i]);
+                require(poach.destroy(ids[i]), "Fail destroy");
+                if (addr != ETH)
+                    require(Token(addr).transfer(_beneficiary, amount));
+                else
+                    _beneficiary.transfer(amount);
+            }
+        }
         return true;
     }
 }
