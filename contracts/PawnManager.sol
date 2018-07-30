@@ -6,7 +6,6 @@ import "./rcn/interfaces/Engine.sol";
 import "./rcn/interfaces/Token.sol";
 import "./interfaces/ERC721.sol";
 
-import "./rcn/utils/RpSafeMath.sol";
 import "./rcn/utils/BytesUtils.sol";
 import "./rcn/utils/Ownable.sol";
 
