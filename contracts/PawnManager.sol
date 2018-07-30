@@ -44,7 +44,9 @@ contract NanoLoanEngine is Engine {
 
     When the loan is resolved (paid, pardoned or defaulted), the pawn with his tokens can be recovered.
 */
-contract PawnManager is Cosigner, ERC721Base, BytesUtils, RpSafeMath, Ownable {
+contract PawnManager is Cosigner, ERC721Base, BytesUtils, Ownable {
+    using SafeMath for uint256;
+
     address constant internal ETH = 0x00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee;
     NanoLoanEngine nanoLoanEngine;
     IBundle bundle;
@@ -286,7 +288,7 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, RpSafeMath, Ownable {
                 poachId = poach.create(_tokens[i], _amounts[i]);
             } else {
                 poachId = poach.create.value(_amounts[i])(_tokens[i], _amounts[i]);
-                totEth = safeAdd(totEth, _amounts[i]);
+                totEth = totEth.add(_amounts[i]);
             }
 
             require(poach.approve(bundle, poachId));
