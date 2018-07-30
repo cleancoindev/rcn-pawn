@@ -1,7 +1,6 @@
 pragma solidity ^0.4.24;
 
 import "./rcn/utils/BytesUtils.sol";
-import "./rcn/utils/RpSafeMath.sol";
 import "./rcn/utils/Ownable.sol";
 
 import "./ERC721Base.sol";
@@ -11,7 +10,7 @@ interface ERC721 {
     function ownerOf(uint256 id) external view returns (address);
 }
 
-contract Bundle is ERC721Base, BytesUtils, RpSafeMath {
+contract Bundle is ERC721Base, BytesUtils {
     uint256 private constant MAX_UINT256 = uint256(0) - uint256(1);
 
     Package[] private packages;
