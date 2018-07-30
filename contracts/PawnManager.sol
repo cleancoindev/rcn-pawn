@@ -36,10 +36,6 @@ contract NanoLoanEngine is Engine {
     function identifierToIndex(bytes32 signature) public view returns (uint256);
 }
 
-interface IDeposit {
-    function deposit() external payable;
-}
-
 /**
     @notice The contract is used to handle all the lifetime of a pawn. The borrower can
 
@@ -365,10 +361,7 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, RpSafeMath, Ownable {
                 if (addr != ETH)
                     require(Token(addr).transfer(_beneficiary, amount));
                 else
-                    if (_isContract(msg.sender))
-                        IDeposit(_beneficiary).deposit.value(amount)();
-                    else
-                        _beneficiary.transfer(amount);
+                    _beneficiary.transfer(amount);
             }
         }
         return true;
@@ -546,15 +539,5 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, RpSafeMath, Ownable {
         delete pawnByPackageId[pawn.packageId];
 
         return true;
-    }
-
-    //
-    // Utilities
-    //
-
-    function _isContract(address addr) internal view returns (bool) {
-        uint size;
-        assembly { size := extcodesize(addr) }
-        return size > 0;
     }
 }
