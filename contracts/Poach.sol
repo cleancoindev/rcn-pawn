@@ -4,9 +4,10 @@ pragma solidity ^0.4.24;
 import "./interfaces/Token.sol";
 
 import "./ERC721Base.sol";
-import "./rcn/utils/RpSafeMath.sol";
 
-contract Poach is ERC721Base, RpSafeMath {
+contract Poach is ERC721Base {
+    using SafeMath for uint256;
+
     address constant internal ETH = 0x00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee;
 
     struct Pair {
@@ -79,7 +80,7 @@ contract Poach is ERC721Base, RpSafeMath {
         else
             require(msg.value == amount && address(pair.token) == ETH);
 
-        pair.amount = safeAdd(pair.amount, amount);
+        pair.amount = (pair.amount).add(amount);
         emit Deposit(msg.sender, id, amount);
 
         return true;
