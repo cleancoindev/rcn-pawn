@@ -6,10 +6,6 @@ import "./interfaces/Token.sol";
 import "./ERC721Base.sol";
 import "./rcn/utils/RpSafeMath.sol";
 
-interface IDeposit {
-    function deposit() external payable;
-}
-
 contract Poach is ERC721Base, RpSafeMath {
     address constant internal ETH = 0x00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee;
 
@@ -102,25 +98,12 @@ contract Poach is ERC721Base, RpSafeMath {
         if (address(pair.token) != ETH)
             require(pair.token.transfer(msg.sender, pair.amount));
         else
-            if (_isContract(msg.sender))
-                IDeposit(msg.sender).deposit.value(pair.amount)();
-            else
-                msg.sender.transfer(pair.amount);
+            msg.sender.transfer(pair.amount);
 
         pair.alive = false;
 
         emit Destroy(msg.sender, id, pair.amount);
 
         return true;
-    }
-
-    //
-    // Utilities
-    //
-
-    function _isContract(address addr) internal view returns (bool) {
-        uint size;
-        assembly { size := extcodesize(addr) }
-        return size > 0;
     }
 }
