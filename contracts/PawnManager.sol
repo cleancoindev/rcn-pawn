@@ -57,7 +57,7 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, RpSafeMath, Ownable {
     event NewPawn(address borrower, uint256 loanId, uint256 packageId, uint256 pawnId);
     event RequestedPawn(uint256 pawnId, address borrower, address engine, uint256 loanId, uint256 packageId);
     event StartedPawn(uint256 pawnId);
-    event CanceledPawn(address from, uint256 pawnId);
+    event CanceledPawn(address from, address to, uint256 pawnId);
     event PaidPawn(address from, uint256 pawnId);
     event DefaultedPawn(uint256 pawnId);
 
@@ -305,37 +305,16 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, RpSafeMath, Ownable {
         bundle.depositBatch(packageId, _erc721s, _ids);
     }
     /**
-        @notice Cancels an existing pawn
-        @dev The pawn status should be pending
-
-        @param _pawnId Id of the pawn
-
-        @return true If the operation was executed
-    */
-    function cancelPawn(uint256 _pawnId) external returns (bool) {
-        Pawn storage pawn = pawns[_pawnId];
-
-        // Only the owner of the pawn and if the pawn is pending
-        require(msg.sender == pawn.owner, "Only the owner can cancel the pawn");
-        require(pawn.status == Status.Pending, "The pawn is not pending");
-
-        pawn.status = Status.Canceled;
-
-        // Transfer the package back to the borrower
-        bundle.safeTransferFrom(this, msg.sender, pawn.packageId);
-
-        emit CanceledPawn(msg.sender, _pawnId);
-        return true;
-    }
-    /**
         @notice Cancels an existing pawn and withdraw all tokens
         @dev The pawn status should be pending
 
         @param _pawnId Id of the pawn
+        @param _to The new owner
+        @param _asToken If true transfer all tokens, if false only transfer the package
 
         @return true If the operation was executed
     */
-    function cancelWithdraw(uint256 _pawnId) external returns (bool) {
+    function cancelPawn(uint256 _pawnId, address _to, bool _asToken) public returns (bool) {
         Pawn storage pawn = pawns[_pawnId];
 
         // Only the owner of the pawn and if the pawn is pending
@@ -344,9 +323,15 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, RpSafeMath, Ownable {
 
         pawn.status = Status.Canceled;
 
-        require(_withdrawAll(pawn.packageId, msg.sender));
+        if (_asToken) {
+            // Transfer all tokens to the _to
+            require(_withdrawAll(pawn.packageId, _to));
+        } else {
+            // Transfer the package back to the _to
+            require(bundle.safeTransferFrom(this, _to, pawn.packageId));
+        }
 
-        emit CanceledPawn(msg.sender, _pawnId);
+        emit CanceledPawn(msg.sender, _to, _pawnId);
         return true;
     }
 
@@ -395,7 +380,7 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, RpSafeMath, Ownable {
     function deposit() external payable {
         require(msg.sender == address(poach));
     }
-    
+
     //
     // Implements cosigner
     //

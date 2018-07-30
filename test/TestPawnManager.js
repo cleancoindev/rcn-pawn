@@ -221,13 +221,13 @@ contract('TestPawnManager', function(accounts) {
         }
 
         try { // Try to cancel a pawn without be the owner
-            await pawnManager.cancelPawn(customPawnId, {from: lender});
+            await pawnManager.cancelPawn(customPawnId, lender, false, {from: lender});
             assert(false, "throw was expected in line above.")
         } catch(e){
             assert(Helper.isRevertErrorMessage(e), "expected throw but got: " + e);
         }
 
-        const cancelPawnReceipt = await pawnManager.cancelPawn(customPawnId, {from: borrower});
+        const cancelPawnReceipt = await pawnManager.cancelPawn(customPawnId, borrower, false, {from: borrower});
         let pawnId = cancelPawnReceipt["logs"][cancelPawnReceipt["logs"].length - 1]["args"]["pawnId"];
 
         assert.equal((await pawnManager.getPawnStatus(pawnId)).toNumber(), Status.Canceled);
@@ -263,9 +263,9 @@ contract('TestPawnManager', function(accounts) {
         assert.equal(await pokemons.ownerOf(pikachu), borrower);
     });
 
-    it("test: create a pawn and cancelAndWithdraw", async() => {
-        try { // Try to cancelWithdraw a pawn without be the owner
-            await pawnManager.cancelWithdraw(customPawnId, {from: lender});
+    it("test: create a pawn and cancel and withdraw", async() => {
+        try { // Try to cancelPawn a pawn without be the owner
+            await pawnManager.cancelPawn(customPawnId, lender, true, {from: lender});
             assert(false, "throw was expected in line above.")
         } catch(e){
             assert(Helper.isRevertErrorMessage(e), "expected throw but got: " + e);
@@ -275,7 +275,7 @@ contract('TestPawnManager', function(accounts) {
 
         assert.equal(web3.eth.getBalance(poach.address).toString(), ethAmount.toString());
         let prevBal = await pepeCoin.balanceOf(borrower);
-        const cancelWithdrawReceipt = await pawnManager.cancelWithdraw(customPawnId, {from: borrower});
+        const cancelPawnReceipt = await pawnManager.cancelPawn(customPawnId, borrower, true, {from: borrower});
         try { // try withdraw all tokens
             await bundle.withdrawAll(packageId, borrower, {from: borrower});
             assert(false, "throw was expected in line above.")
@@ -283,7 +283,7 @@ contract('TestPawnManager', function(accounts) {
             assert(Helper.isRevertErrorMessage(e), "expected throw but got: " + e);
         }
 
-        let pawnId = cancelWithdrawReceipt["logs"][cancelWithdrawReceipt["logs"].length - 1]["args"]["pawnId"];
+        let pawnId = cancelPawnReceipt["logs"][cancelPawnReceipt["logs"].length - 1]["args"]["pawnId"];
 
         assert.equal((await pawnManager.getPawnStatus(pawnId)).toNumber(), Status.Canceled);
 
@@ -299,7 +299,7 @@ contract('TestPawnManager', function(accounts) {
         assert.equal(web3.eth.getBalance(pawnManager.address).toString(), 0);
         assert.equal(web3.eth.getBalance(bundle.address).toString(), 0);
         assert.equal(web3.eth.getBalance(poach.address).toString(), 0);
-      
+
         assert.equal(await pokemons.ownerOf(pikachu), borrower);
     });
 
