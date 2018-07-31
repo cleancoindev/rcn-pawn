@@ -273,6 +273,10 @@ contract('TestBundle', function(accounts) {
         assert.equal((await pepeCoin.balanceOf(user)).toString(), prevUserBal.plus(web3.toWei(6)).toString(), "check user2 Balance");
         assert.equal((await pepeCoin.balanceOf(poach.address)).toString(), prevPoachBal.minus(web3.toWei(6)).toString(), "check bundle contract Balance");
 
+        await poach.destroy(poachEthId, {from:user});
+        await bundle.deposit(packageId, poach.address, poachEthId, {from:user});
+        await bundle.deposit(packageId, poach.address, poach2Id, {from:user});
+
         const content = await bundle.content(packageId);
         assert.equal(content[I_TOKEN].length, 0);
         assert.equal(content[I_AMOUNT].length, 0);
@@ -306,6 +310,8 @@ contract('TestBundle', function(accounts) {
 
         await bundle.withdraw(packageId, pokemons.address, clefairy, user, {from: user});
         await bundle.withdraw(packageId, pokemons.address, pikachu, user, {from: user});
+//TODO try catch
+        await bundle.deposit(packageId, magicCards.address, orc, {from: user});
 
         const content = await bundle.content(packageId);
         assert.equal(content[I_TOKEN].length, 2);
