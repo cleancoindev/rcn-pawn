@@ -16,6 +16,8 @@ let poach;
 // ERC20 contacts
 let rcn;
 let pepeCoin;
+let ethAddress = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+let ethAmount = new BigNumber(50).times(precision);
 // ERC721 contacts
 let pokemons;
 let zombies;
@@ -39,6 +41,9 @@ let orc = 6516551;
 let user;
 let user2;
 
+const I_TOKEN  = 0;
+const I_AMOUNT = 1;
+
 contract('TestBundle', function(accounts) {
     async function assertThrow(promise) {
       try {
@@ -58,13 +63,14 @@ contract('TestBundle', function(accounts) {
     };
 
     before("Create the bundle contract", async function() {
+      // set account addresses
+      user  = accounts[1];
+      user2  = accounts[2];
+
       bundle = await Bundle.new();
     })
 
     beforeEach("Create Bundle, ERC20, ERC721 contracts", async function(){
-        // set account addresses
-        user  = accounts[1];
-        user2  = accounts[2];
         // deploy contracts
         // ERC20
         rcn = await TestToken.new();
@@ -96,7 +102,7 @@ contract('TestBundle', function(accounts) {
         receipt = await bundle.create({from: user});
         const package2 = receipt.logs[1].args._tokenId;
 
-        assert.equal(await bundle.ownerOf(2), user, "check package 2 ownership");
+        assert.equal(await bundle.ownerOf(package2), user, "check package 2 ownership");
 
         await bundle.create({from: user});
         await bundle.create({from: user});
@@ -127,27 +133,35 @@ contract('TestBundle', function(accounts) {
         const poach1Id = poachReceipt["logs"][1]["args"]["pairId"];
         poachReceipt = await poach.create(pepeCoin.address, web3.toWei(6), {from:user});
         const poach2Id = poachReceipt["logs"][1]["args"]["pairId"];
+        poachReceipt = await poach.create(ethAddress, ethAmount.toString(), {from:user, value:ethAmount.toString()});
+        const poachEthId = poachReceipt["logs"][0]["args"]["pairId"];
         await poach.setApprovalForAll(bundle.address, true, {from:user});
 
         await bundle.deposit(packageId, poach.address, poach1Id, {from:user});
         await bundle.deposit(packageId, poach.address, poach2Id, {from:user});
+        await bundle.deposit(packageId, poach.address, poachEthId, {from:user});
 
         // ckeck package balance
         assert.equal(await rcn.balanceOf(poach.address), web3.toWei(5), "ckeck package balance in rcn");
         assert.equal(await pepeCoin.balanceOf(poach.address), web3.toWei(6), "ckeck package balance in pepeCoin");
+        assert.equal(web3.eth.getBalance(poach.address), ethAmount.toString());
+        assert.equal(await rcn.balanceOf(bundle.address), 0, "ckeck package balance in rcn");
+        assert.equal(await pepeCoin.balanceOf(bundle.address), 0, "ckeck package balance in pepeCoin");
+        assert.equal(web3.eth.getBalance(bundle.address), 0);
         assert.equal(await poach.ownerOf(poach1Id), bundle.address);
         assert.equal(await poach.ownerOf(poach2Id), bundle.address);
+        assert.equal(await poach.ownerOf(poachEthId), bundle.address);
         // ckeck user balance
         assert.equal(await rcn.balanceOf(user), prevRcnBal - web3.toWei(5), "ckeck user balance in rcn");
         assert.equal(await pepeCoin.balanceOf(user), prevPepeCoinBal - web3.toWei(6), "ckeck user balance in pepeCoin");
 
         let content = await bundle.content(packageId);
-        assert.equal(content[0].length, 2);
-        assert.equal(content[0].length, content[1].length);
-        assert.equal(content[0][0], poach.address);
-        assert.equal(content[1][0].toNumber(), poach1Id);
-        assert.equal(content[0][1], poach.address);
-        assert.equal(content[1][1].toNumber(), poach2Id);
+        assert.equal(content[I_TOKEN].length, 3);
+        assert.equal(content[I_TOKEN].length, content[I_AMOUNT].length);
+        assert.equal(content[I_TOKEN][0], poach.address);
+        assert.equal(content[I_AMOUNT][0].toNumber(), poach1Id);
+        assert.equal(content[I_TOKEN][1], poach.address);
+        assert.equal(content[I_AMOUNT][1].toNumber(), poach2Id);
 
         // add a diferent amount of tokens in a registered package
         await rcn.createTokens(user, web3.toWei(4));
@@ -157,12 +171,12 @@ contract('TestBundle', function(accounts) {
         assert.equal(await rcn.balanceOf(poach.address), web3.toWei(9), "ckeck bundle contract balance in rcn");
 
         content = await bundle.content(packageId);
-        assert.equal(content[0].length, 2);
-        assert.equal(content[0].length, content[1].length);
-        assert.equal(content[0][0], poach.address);
-        assert.equal(content[1][0].toNumber(), poach1Id);
-        assert.equal(content[0][1], poach.address);
-        assert.equal(content[1][1].toNumber(), poach2Id);
+        assert.equal(content[I_TOKEN].length, 3);
+        assert.equal(content[I_TOKEN].length, content[I_AMOUNT].length);
+        assert.equal(content[I_TOKEN][0], poach.address);
+        assert.equal(content[I_AMOUNT][0].toNumber(), poach1Id);
+        assert.equal(content[I_TOKEN][1], poach.address);
+        assert.equal(content[I_AMOUNT][1].toNumber(), poach2Id);
     });
 
     it("test: add erc721 to a package", async() => {
@@ -200,18 +214,18 @@ contract('TestBundle', function(accounts) {
         assert.equal(await magicCards.ownerOf(ent), bundle.address);
 
         const content = await bundle.content(packageId);
-        assert.equal(content[0].length, 5);
-        assert.equal(content[0].length, content[1].length);
-        assert.equal(content[0][0], pokemons.address);
-        assert.equal(content[1][0], pikachu);
-        assert.equal(content[0][1], pokemons.address);
-        assert.equal(content[1][1], clefairy);
-        assert.equal(content[0][2], zombies.address);
-        assert.equal(content[1][2], theFirst);
-        assert.equal(content[0][3], magicCards.address);
-        assert.equal(content[1][3], orc);
-        assert.equal(content[0][4], magicCards.address);
-        assert.equal(content[1][4], ent);
+        assert.equal(content[I_TOKEN].length, 5);
+        assert.equal(content[I_TOKEN].length, content[I_AMOUNT].length);
+        assert.equal(content[I_TOKEN][0], pokemons.address);
+        assert.equal(content[I_AMOUNT][0], pikachu);
+        assert.equal(content[I_TOKEN][1], pokemons.address);
+        assert.equal(content[I_AMOUNT][1], clefairy);
+        assert.equal(content[I_TOKEN][2], zombies.address);
+        assert.equal(content[I_AMOUNT][2], theFirst);
+        assert.equal(content[I_TOKEN][3], magicCards.address);
+        assert.equal(content[I_AMOUNT][3], orc);
+        assert.equal(content[I_TOKEN][4], magicCards.address);
+        assert.equal(content[I_AMOUNT][4], ent);
     });
 
     it("test: withdraw erc20 from a package", async() => {
@@ -229,10 +243,14 @@ contract('TestBundle', function(accounts) {
         const poach1Id = poachReceipt["logs"][1]["args"]["pairId"];
         poachReceipt = await poach.create(pepeCoin.address, web3.toWei(6), {from:user});
         const poach2Id = poachReceipt["logs"][1]["args"]["pairId"];
+        poachReceipt = await poach.create(ethAddress, ethAmount.toString(), {from:user, value:ethAmount.toString()});
+        const poachEthId = poachReceipt["logs"][0]["args"]["pairId"];
+
         await poach.setApprovalForAll(bundle.address, true, {from:user});
 
         await bundle.deposit(packageId, poach.address, poach1Id, {from:user});
         await bundle.deposit(packageId, poach.address, poach2Id, {from:user});
+        await bundle.deposit(packageId, poach.address, poachEthId, {from:user});
 
         let prevUserBal = await rcn.balanceOf(user);
         let prevUser2Bal = await rcn.balanceOf(user2);
@@ -245,19 +263,19 @@ contract('TestBundle', function(accounts) {
         assert.equal((await rcn.balanceOf(user)).toString(), prevUserBal.toString(), "check user Balance");
         assert.equal((await rcn.balanceOf(poach.address)).toString(), prevPoachBal.minus(web3.toWei(5)).toString(), "check bundle contract Balance");
 
-        // withdraw ALL pepeCoin
+        // withdraw ALL poachs
         prevUserBal = await pepeCoin.balanceOf(user);
         prevPoachBal = await pepeCoin.balanceOf(poach.address);
 
-        await bundle.withdraw(packageId, poach.address, poach2Id, user, {from:user});
+        await bundle.withdrawBatch(packageId, [poach.address, poach.address], [poach2Id, poachEthId], user, {from:user});
         await poach.destroy(poach2Id, {from:user});
 
         assert.equal((await pepeCoin.balanceOf(user)).toString(), prevUserBal.plus(web3.toWei(6)).toString(), "check user2 Balance");
         assert.equal((await pepeCoin.balanceOf(poach.address)).toString(), prevPoachBal.minus(web3.toWei(6)).toString(), "check bundle contract Balance");
 
         const content = await bundle.content(packageId);
-        assert.equal(content[0].length, 0);
-        assert.equal(content[1].length, 0);
+        assert.equal(content[I_TOKEN].length, 0);
+        assert.equal(content[I_AMOUNT].length, 0);
 
         try { // try to withdraw a deleted ERC20 id
           await bundle.withdraw(packageId, poach.address, poach2Id, user, {from:user});
@@ -290,12 +308,12 @@ contract('TestBundle', function(accounts) {
         await bundle.withdraw(packageId, pokemons.address, pikachu, user, {from: user});
 
         const content = await bundle.content(packageId);
-        assert.equal(content[0].length, 2);
-        assert.equal(content[1].length, 2);
-        assert.equal(content[0][0], zombies.address);
-        assert.equal(content[1][0], theFirst);
-        assert.equal(content[0][1], magicCards.address);
-        assert.equal(content[1][1], orc);
+        assert.equal(content[I_TOKEN].length, 2);
+        assert.equal(content[I_AMOUNT].length, 2);
+        assert.equal(content[I_TOKEN][0], zombies.address);
+        assert.equal(content[I_AMOUNT][0], theFirst);
+        assert.equal(content[I_TOKEN][1], magicCards.address);
+        assert.equal(content[I_AMOUNT][1], orc);
 
         assert.equal(await pokemons.ownerOf(clefairy), user);
         assert.equal(await pokemons.ownerOf(pikachu), user);
@@ -412,11 +430,28 @@ contract('TestBundle', function(accounts) {
       await magicCards.setApprovalForAll(bundle.address, true, {from:user});
       await pokemons.transferFrom(user2, user, ratata, {from:user2})
 
+      // add erc20
+      await rcn.approve(poach.address, web3.toWei(5), {from:user});
+      await pepeCoin.approve(poach.address, web3.toWei(6), {from:user});
+
+      let poachReceipt = await poach.create(pepeCoin.address, web3.toWei(6), {from:user});
+      const poach1Id = poachReceipt["logs"][1]["args"]["pairId"];
+      poachReceipt = await poach.create(ethAddress, ethAmount.toString(), {from:user, value:ethAmount.toString()});
+      const poachEthId = poachReceipt["logs"][0]["args"]["pairId"];
+
+      await poach.setApprovalForAll(bundle.address, true, {from:user});
+
       const tokens = [pokemons.address, pokemons.address, pokemons.address, pokemons.address, magicCards.address, pokemons.address]
       const items = [pikachu, clefairy, ratata, mewtwo, ent, vulpix]
 
       await bundle.depositBatch(packageId, tokens, items, {from: user});
+      await bundle.deposit(packageId, poach.address, poachEthId, {from:user});
+      await bundle.deposit(packageId, poach.address, poach1Id, {from:user});
       await bundle.transferFrom(user, user2, packageId, {from: user})
+
+      let prevUserBal = await rcn.balanceOf(user);
+      let prevUser2Bal = await rcn.balanceOf(user2);
+      let prevPoachBal = await rcn.balanceOf(poach.address);
 
       await bundle.withdrawAll(packageId, user2, {from:user2})
       assert.equal((await bundle.content(packageId))[0].length, 0);
