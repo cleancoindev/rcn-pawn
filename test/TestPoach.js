@@ -167,7 +167,7 @@ contract('Poach', function(accounts) {
 
         ethPair = await poach.getPair(ethPairId);
         assert.equal(ethPair[I_TOKEN], ethAddress);
-        assert.equal(ethPair[I_AMOUNT].toString(), ethAmount.plus(new BigNumber(1)).plus(new BigNumber(1)));
+        assert.equal(ethPair[I_AMOUNT].toNumber(), ethAmount.plus(new BigNumber(1)).plus(new BigNumber(1)));
         assert.equal(ethPair[I_ALIVE], true);
 
         await poach.destroy(ethPairId, {from: user});
@@ -190,12 +190,15 @@ contract('Poach', function(accounts) {
 
         let prevBal = await rcn.balanceOf(user);
 
-        await poach.destroy(customPairId, {from: user});
-
         customPair = await poach.getPair(customPairId);
+        await poach.destroy(customPairId, {from: user});
+        const destroyPair = await poach.getPair(customPairId);
+        assert.equal(destroyPair[I_TOKEN], rcn.address);
+        assert.equal(destroyPair[I_AMOUNT].toNumber(), 0);
+        assert.equal(destroyPair[I_ALIVE], false);
+
         assert.equal(customPair[I_TOKEN], rcn.address);
         assert.equal((await rcn.balanceOf(user)).toNumber(), prevBal.plus(customPair[I_AMOUNT]).toNumber());
-        assert.equal(customPair[I_ALIVE], false);
 
         try { // try destroy a destroyed pair
           await rcn.createTokens(poach.address, web3.toWei("500000"));
