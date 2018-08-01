@@ -12,7 +12,7 @@ let TestERC721 = artifacts.require("./rcn/utils/test/TestERC721.sol");
 const Helper = require("./helper.js");
 const BigNumber = require('bignumber.js');
 const precision = new BigNumber(10**18);
-let Status = Object.freeze({"Pending":0, "Ongoing":1, "Canceled":2, "Paid":3, "Defaulted":4});
+let Status = Object.freeze({"Pending":0, "Initial":0, "Ongoing":1, "Lent":1, "Canceled":2, "Paid":3, "Defaulted":4, "Destroyed":4});
 
 let ethAddress = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
 let ethAmount = new BigNumber(50).times(precision);
@@ -142,11 +142,11 @@ contract('TestPawnManager', function(accounts) {
             pawnManager.address,  // Creator of the loan, the pawn creator
             0x0,                  // Currency of the loan, RCN
             loanParams[0],        // Request amount
-            loanParams[1],        // Interest rate, 20% anual
-            loanParams[2],        // Punnitory interest rate, 30% anual
-            loanParams[3],        // Duration of the loan, 6 months
-            loanParams[4],        // Borrower can pay the loan at 5 months
-            loanParams[5],        // Pawn request expires in 1 month
+            loanParams[1],        // Interest rate
+            loanParams[2],        // Punnitory interest rate
+            loanParams[3],        // Duration of the loan
+            loanParams[4],        // Borrower can pay the loan at 1 day
+            loanParams[5],        // Pawn request expires
             loanMetadata          // Metadata
         )
         // Sign the loan
@@ -173,6 +173,78 @@ contract('TestPawnManager', function(accounts) {
         );
         customLoanId = pawnReceipt["logs"][pawnReceipt["logs"].length - 1]["args"]["loanId"];
         customPawnId = pawnReceipt["logs"][pawnReceipt["logs"].length - 1]["args"]["pawnId"];
+    });
+
+    it("test: create a pawn with only erc20", async() => {
+        //create a loan
+        const loanReceipt = await rcnEngine.createLoan(0x0, borrower, 0x0, web3.toWei(90), loanParams[1], loanParams[2], loanParams[3], loanParams[4], loanParams[5], loanMetadata, {from: borrower});
+        const loanId = loanReceipt["logs"][0]["args"]["_index"];
+
+        await pepeCoin.approve(pawnManager.address, web3.toWei(1), {from:borrower});
+        const tokens  = [pepeCoin.address];
+        const amounts = [web3.toWei(1)];
+        const erc721s = [];
+        const ids     = [];
+
+        const pawnReceipt = await pawnManager.requestPawnId(rcnEngine.address, loanId, tokens, amounts, erc721s, ids, {from: borrower});
+        const pawnId = pawnReceipt["logs"][pawnReceipt["logs"].length - 1]["args"]["pawnId"];
+
+        assert.equal((await pawnManager.getPawnStatus(pawnId)).toNumber(), Status.Pending);
+        assert.equal((await rcnEngine.getStatus(loanId)).toNumber(), Status.Initial);
+
+        const packageId = await pawnManager.getPawnPackageId(pawnId);
+        assert.equal((await bundle.content(packageId))[0][0], poach.address);
+        const poachId = (await bundle.content(packageId))[1][0];
+        const pair = await poach.getPair(poachId);
+        assert.equal(pair[0], pepeCoin.address);
+        assert.equal(pair[1], amounts[0]);
+        assert.equal(pair[2], true);
+    });
+
+    it("test: create a pawn with only eth", async() => {
+        //create a loan
+        const loanReceipt = await rcnEngine.createLoan(0x0, borrower, 0x0, web3.toWei(90), loanParams[1], loanParams[2], loanParams[3], loanParams[4], loanParams[5], loanMetadata, {from: borrower});
+        const loanId = loanReceipt["logs"][0]["args"]["_index"];
+        const tokens  = [ethAddress];
+        const amounts = [web3.toWei(0.05)];
+        const erc721s = [];
+        const ids     = [];
+
+        const pawnReceipt = await pawnManager.requestPawnId(rcnEngine.address, loanId, tokens, amounts, erc721s, ids, {from: borrower, value:web3.toWei(0.05)});
+        const pawnId = pawnReceipt["logs"][pawnReceipt["logs"].length - 1]["args"]["pawnId"];
+
+        assert.equal((await pawnManager.getPawnStatus(pawnId)).toNumber(), Status.Pending);
+        assert.equal((await rcnEngine.getStatus(loanId)).toNumber(), Status.Initial);
+
+        const packageId = await pawnManager.getPawnPackageId(pawnId);
+        assert.equal((await bundle.content(packageId))[0][0], poach.address);
+        const poachId = (await bundle.content(packageId))[1][0];
+        const pair = await poach.getPair(poachId);
+        assert.equal(pair[0], ethAddress);
+        assert.equal(pair[1], amounts[0]);
+        assert.equal(pair[2], true);
+    });
+
+    it("test: create a pawn with only erc721", async() => {
+        //create a loan
+        const loanReceipt = await rcnEngine.createLoan(0x0, borrower, 0x0, web3.toWei(90), loanParams[1], loanParams[2], loanParams[3], loanParams[4], loanParams[5], loanMetadata, {from: borrower});
+        const loanId = loanReceipt["logs"][0]["args"]["_index"];
+
+        await pokemons.addNtf("dig"  , 99  , borrower);
+        await pokemons.approve(pawnManager.address, 99, {from:borrower});
+        const tokens  = [];
+        const amounts = [];
+        const erc721s = [pokemons.address];
+        const ids     = [99];
+
+        const pawnReceipt = await pawnManager.requestPawnId(rcnEngine.address, loanId, tokens, amounts, erc721s, ids, {from: borrower});
+        const pawnId = pawnReceipt["logs"][pawnReceipt["logs"].length - 1]["args"]["pawnId"];
+
+        assert.equal((await pawnManager.getPawnStatus(pawnId)).toNumber(), Status.Pending);
+        assert.equal((await rcnEngine.getStatus(loanId)).toNumber(), Status.Initial);
+        const packageId = await pawnManager.getPawnPackageId(pawnId);
+        assert.equal((await bundle.content(packageId))[0], pokemons.address);
+        assert.equal((await bundle.content(packageId))[1], 99);
     });
 
     it("test: create a pawn and cancel", async() => {
@@ -251,12 +323,14 @@ contract('TestPawnManager', function(accounts) {
         let prevBal = await pepeCoin.balanceOf(borrower);
         await poach.destroy(pawnPackage[1][0], {from: borrower});
         pair = await poach.getPair(pawnPackage[1][0]);
+        assert.equal(pair[1], 0);
         assert.equal(pair[2], false);
         let bal = await pepeCoin.balanceOf(borrower);
         assert.equal(bal.toString(), prevBal.plus(amounts[0]).toString());
 
         await poach.destroy(pawnPackage[1][1], {from: borrower});
         pairEth = await poach.getPair(pawnPackage[1][1]);
+        assert.equal(pair[1], 0);
         assert.equal(pairEth[2], false);
         assert.equal(web3.eth.getBalance(poach.address).toString(), 0);
 
@@ -301,6 +375,53 @@ contract('TestPawnManager', function(accounts) {
         assert.equal(web3.eth.getBalance(poach.address).toString(), 0);
 
         assert.equal(await pokemons.ownerOf(pikachu), borrower);
+    });
+
+    it("test: request a pawn with loan identifier", async() => {
+        //create a loan
+        await rcnEngine.createLoan(0x0, borrower, 0x0, web3.toWei(90), loanParams[1], loanParams[2], loanParams[3], loanParams[4], loanParams[5], loanMetadata, {from: borrower});
+        const loanIdentifier = await rcnEngine.buildIdentifier(0x0, borrower, borrower, 0x0, web3.toWei(90), loanParams[1],loanParams[2],loanParams[3],loanParams[4],loanParams[5],loanMetadata)
+
+        await pokemons.addNtf("dig"  , 99  , borrower);
+        await zombies.addNtf("doctorZ", 756, borrower);
+        await pokemons.approve(pawnManager.address, 99, {from:borrower});
+        await zombies.approve(pawnManager.address, 756, {from:borrower});
+        await pepeCoin.approve(pawnManager.address, web3.toWei(1), {from:borrower});
+        const tokens  = [pepeCoin.address];
+        const amounts = [web3.toWei(1)];
+        const erc721s = [pokemons.address, zombies.address];
+        const ids     = [99, 756];
+
+        const pawnReceipt = await pawnManager.requestPawnWithLoanIdentifier(rcnEngine.address, loanIdentifier, tokens, amounts, erc721s, ids, {from: borrower});
+
+        const loanId = pawnReceipt["logs"][pawnReceipt["logs"].length - 1]["args"]["loanId"];
+        const pawnId = pawnReceipt["logs"][pawnReceipt["logs"].length - 1]["args"]["pawnId"];
+
+        assert.equal((await pawnManager.getPawnStatus(pawnId)).toNumber(), Status.Pending);
+        assert.equal((await rcnEngine.getStatus(loanId)).toNumber(), Status.Initial);
+    });
+
+    it("test: request a pawn with loan index", async() => {
+        //create a loan
+        const loanReceipt = await rcnEngine.createLoan(0x0, borrower, 0x0, web3.toWei(90), loanParams[1], loanParams[2], loanParams[3], loanParams[4], loanParams[5], loanMetadata, {from: borrower});
+        const loanId = loanReceipt["logs"][0]["args"]["_index"];
+
+        await pokemons.addNtf("dig"  , 99  , borrower);
+        await zombies.addNtf("doctorZ", 756, borrower);
+        await pokemons.approve(pawnManager.address, 99, {from:borrower});
+        await zombies.approve(pawnManager.address, 756, {from:borrower});
+        await pepeCoin.approve(pawnManager.address, web3.toWei(1), {from:borrower});
+        const tokens  = [pepeCoin.address];
+        const amounts = [web3.toWei(1)];
+        const erc721s = [pokemons.address, zombies.address];
+        const ids     = [99, 756];
+
+        const pawnReceipt = await pawnManager.requestPawnId(rcnEngine.address, loanId, tokens, amounts, erc721s, ids, {from: borrower});
+
+        const pawnId = pawnReceipt["logs"][pawnReceipt["logs"].length - 1]["args"]["pawnId"];
+
+        assert.equal((await pawnManager.getPawnStatus(pawnId)).toNumber(), Status.Pending);
+        assert.equal((await rcnEngine.getStatus(loanId)).toNumber(), Status.Initial);
     });
 
     it("test: transfer a pawn, pay, claim and withdraw", async() => {
@@ -361,6 +482,7 @@ contract('TestPawnManager', function(accounts) {
 
         await poach.destroy(pawnPackage[1][0], {from: borrowerHelper});
         pair = await poach.getPair(pawnPackage[1][0]);
+        assert.equal(pair[1], 0);
         assert.equal(pair[2], false);
 
         let bal = await pepeCoin.balanceOf(borrowerHelper);
@@ -368,6 +490,7 @@ contract('TestPawnManager', function(accounts) {
 
         await poach.destroy(pawnPackage[1][1], {from: borrowerHelper});
         let pairEth = await poach.getPair(pawnPackage[1][1]);
+        assert.equal(pair[1], 0);
         assert.equal(pairEth[2], false);
         assert.equal(web3.eth.getBalance(poach.address).toString(), 0);
 
@@ -498,12 +621,14 @@ contract('TestPawnManager', function(accounts) {
         let prevBal = await pepeCoin.balanceOf(borrower);
         await poach.destroy(pawnPackage[1][0], {from: borrower});
         pair = await poach.getPair(pawnPackage[1][0]);
+        assert.equal(pair[1], 0);
         assert.equal(pair[2], false);
         let bal = await pepeCoin.balanceOf(borrower);
         assert.equal(bal.toString(), prevBal.plus(amounts[0]).toString());
 
         await poach.destroy(pawnPackage[1][1], {from: borrower});
         let pairEth = await poach.getPair(pawnPackage[1][1]);
+        assert.equal(pair[1], 0);
         assert.equal(pairEth[2], false);
         assert.equal(web3.eth.getBalance(poach.address).toString(), 0);
 
@@ -548,12 +673,14 @@ contract('TestPawnManager', function(accounts) {
         let prevBal = await pepeCoin.balanceOf(lender);
         await poach.destroy(pawnPackage[1][0], {from: lender});
         pair = await poach.getPair(pawnPackage[1][0]);
+        assert.equal(pair[1], 0);
         assert.equal(pair[2], false);
         let bal = await pepeCoin.balanceOf(lender);
         assert.equal(bal.toString(), prevBal.plus(amounts[0]).toString());
 
         await poach.destroy(pawnPackage[1][1], {from: lender});
         let pairEth = await poach.getPair(pawnPackage[1][1]);
+        assert.equal(pair[1], 0);
         assert.equal(pairEth[2], false);
         assert.equal(web3.eth.getBalance(poach.address).toString(), 0);
 
