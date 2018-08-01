@@ -5,6 +5,7 @@ import "./interfaces/Token.sol";
 
 import "./ERC721Base.sol";
 
+
 contract Poach is ERC721Base {
     using SafeMath for uint256;
 
@@ -102,6 +103,7 @@ contract Poach is ERC721Base {
             msg.sender.transfer(pair.amount);
 
         pair.alive = false;
+        pair.amount = 0;
 
         emit Destroy(msg.sender, id, pair.amount);
 
