@@ -5,10 +5,12 @@ import "./rcn/utils/Ownable.sol";
 
 import "./ERC721Base.sol";
 
+
 interface ERC721 {
     function transferFrom(address from, address to, uint256 id) external;
     function ownerOf(uint256 id) external view returns (address);
 }
+
 
 contract Bundle is ERC721Base, BytesUtils {
     uint256 private constant MAX_UINT256 = uint256(0) - uint256(1);
@@ -163,7 +165,7 @@ contract Bundle is ERC721Base, BytesUtils {
         Package storage package = packages[packageId];
         uint256 i = package.ids.length - 1;
 
-        for (;i != MAX_UINT256; i--) {
+        for (; i != MAX_UINT256; i--) {
             require(_withdraw(packageId, ERC721(package.tokens[i]), package.ids[i], to));
         }
 
