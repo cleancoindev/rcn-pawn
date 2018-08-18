@@ -28,23 +28,6 @@ let poach;
 let user;
 
 contract('Poach', function(accounts) {
-    async function assertThrow(promise) {
-      try {
-        await promise;
-      } catch (error) {
-        const invalidJump = error.message.search('invalid JUMP') >= 0;
-        const revert = error.message.search('revert') >= 0;
-        const invalidOpcode = error.message.search('invalid opcode') >0;
-        const outOfGas = error.message.search('out of gas') >= 0;
-        assert(
-          invalidJump || outOfGas || revert || invalidOpcode,
-          "Expected throw, got '" + error + "' instead",
-        );
-        return;
-      }
-      assert.fail('Expected throw not received');
-    };
-
     beforeEach("Create Poach and tokens", async function(){
         // set account addresses
         user   = accounts[1];
