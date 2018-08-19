@@ -1,24 +1,24 @@
-module.exports.toInterestRate = function(interest, time) {
+function toInterestRate(interest, time) {
     return Math.trunc((10000000 / interest) * 360 * time);
 }
 
-module.exports.now = function() {
+function now() {
     return web3.eth.getBlock('latest').timestamp;
 };
 
-module.exports.timeTravel = async seconds => {
+async function timeTravel(seconds) {
     await web3.currentProvider.send({jsonrpc: "2.0", method: "evm_increaseTime", params: [seconds], id: 0});
     await web3.currentProvider.send({jsonrpc: "2.0", method: "evm_mine", params: [], id: 0});
 };
 
-module.exports.isRevertErrorMessage = function( error ) {
+function isRevertErrorMessage( error ) {
     if( error.message.search('invalid opcode') >= 0 ) return true;
     if( error.message.search('revert') >= 0 ) return true;
     if( error.message.search('out of gas') >= 0 ) return true;
     return false;
 };
 
-module.exports.toBytes32 = function(source) {
+function toBytes32(source) {
     source = web3.toHex(source);
     const rl = 64;
     source = source.toString().replace("0x", "");
@@ -29,7 +29,7 @@ module.exports.toBytes32 = function(source) {
     return "0x" + source;
 }
 
-module.exports.hexArrayToBytesOfBytes32 = function(array) {
+function hexArrayToBytesOfBytes32(array) {
     let bytes = "0x";
     for(let i = 0; i < array.length; i++){
         let bytes32 = array[i].toString().replace("0x", "");
@@ -43,7 +43,9 @@ module.exports.hexArrayToBytesOfBytes32 = function(array) {
     return bytes;
 }
 
-module.exports.approveAll = async (owner, to, nftArray) => {
+async function approveAll(owner, to, nftArray) {
     for(let i = 0; i < nftArray.length; i++)
         await erc721.approve(to, nftArray[i], {from: owner});
 };
+
+module.exports = {toInterestRate, now, timeTravel, isRevertErrorMessage, toBytes32, hexArrayToBytesOfBytes32, approveAll};
