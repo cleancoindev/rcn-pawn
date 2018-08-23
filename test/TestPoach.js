@@ -26,6 +26,7 @@ let poach;
 
 // accounts
 let user;
+let hacker;
 
 contract('Poach', function(accounts) {
     beforeEach("Create Poach and tokens", async function(){
