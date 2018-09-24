@@ -419,7 +419,8 @@ contract PawnManager is Cosigner, ERC721Base, BytesUtils, Ownable {
         @return true if the loan is considered defaulted
     */
     function isDefaulted(Engine _engine, uint256 _index) public view returns (bool) {
-        return _engine.getStatus(_index) == Engine.Status.lent && _engine.getDueTime(_index) <= now;
+        return _engine.getStatus(_index) == Engine.Status.lent && 
+            _engine.getDueTime(_index).add(7 days) <= block.timestamp;
     }
 
     /**
