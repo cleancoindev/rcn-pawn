@@ -7,7 +7,7 @@ const PawnManager = artifacts.require('./PawnManager.sol');
 const TestToken = artifacts.require('./rcn/utils/test/TestToken.sol');
 const TestERC721 = artifacts.require('./rcn/utils/test/TestERC721.sol');
 
-const Helper = require('./helper.js');
+const Helper = require('./Helper.js');
 const BigNumber = web3.BigNumber;
 const precision = new BigNumber(10 ** 18);
 const Status = Object.freeze({ 'Pending': 0, 'Initial': 0, 'Ongoing': 1, 'Lent': 1, 'Canceled': 2, 'Paid': 3, 'Defaulted': 4, 'Destroyed': 4 });

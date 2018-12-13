@@ -1,7 +1,7 @@
 const TestToken = artifacts.require('./contracts/rcn/utils/test/TestToken.sol');
 const Poach = artifacts.require('./contracts/Poach.sol');
 
-const Helper = require('./helper.js');
+const Helper = require('./Helper.js');
 const BigNumber = web3.BigNumber;
 const precision = new BigNumber(10 ** 18);
 

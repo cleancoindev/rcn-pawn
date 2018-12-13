@@ -4,7 +4,7 @@ const TestERC721 = artifacts.require('./TestERC721.sol');
 const Bundle = artifacts.require('./Bundle.sol');
 const Poach = artifacts.require('./Poach.sol');
 
-const Helper = require('./helper.js');
+const Helper = require('./Helper.js');
 const BigNumber = web3.BigNumber;
 const precision = new BigNumber(10 ** 18);
 
