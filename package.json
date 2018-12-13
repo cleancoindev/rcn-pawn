@@ -21,8 +21,8 @@
   "homepage": "https://github.com/ripio/rcn-pawn#readme",
   "devDependencies": {
     "bn.js": "^4.11.8",
-    "bn-chai": "^1.0.1",
     "chai": "^4.2.0",
+    "chai-bignumber": "^2.0.2",
     "coveralls": "^3.0.1",
     "dotenv": "^4.0.0",
     "eslint": "^4.19.1",
